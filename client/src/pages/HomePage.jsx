@@ -1,39 +1,62 @@
-// מסך הבית - המסך הראשון שהמשתמש רואה
+// מסך הבית - דשבורד למשתמש מחובר
 //
-// כרגע: כותרת, סטטוס חיבור לשרת, וטקסט הסבר.
-// בהמשך: יכלול התחברות / dashboard לפי סוג המשתמש.
+// מציג ברוכים הבאים, פרטי המשתמש, וסטטוס חיבור לשרת.
+// בהמשך יתווספו: רשימת משלוחים, יצירת משלוח חדש וכו'.
 
 import ConnectionStatus from '../components/ConnectionStatus.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+
+const ROLE_LABELS = {
+  admin: 'מנהל מערכת',
+  accounting: 'הנהלת חשבונות',
+  warehouse: 'מחסן',
+  branch: 'סניף',
+};
 
 export default function HomePage() {
+  const { user } = useAuth();
+
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      <header className="text-center space-y-2">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-          מייה אינספיריישן
+    <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+      <header>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+          שלום, {user.full_name} 👋
         </h1>
-        <p className="text-lg text-gray-600">
-          מערכת ניהול ובקרת משלוחים פנים-ארגונית
+        <p className="text-gray-600 mt-1">
+          {ROLE_LABELS[user.role] || user.role}
+          {user.branch_name ? ` · ${user.branch_name}` : ''}
         </p>
       </header>
 
       <ConnectionStatus />
 
       <div className="card">
-        <h2 className="text-xl font-bold mb-3">ברוכות הבאות 🎉</h2>
+        <h2 className="text-xl font-bold mb-3">המערכת בפיתוח 🚧</h2>
         <p className="text-gray-700 leading-relaxed">
-          זהו מסך הבית של המערכת. בשלב זה אנחנו רק מוודאות שכל הצינורות
-          מחוברים: ה-Frontend מדבר עם ה-Backend, וה-Backend מוכן לדבר
-          עם API של אוריין.
+          בשלב זה ה-Authentication עובד. בשלב הבא ניצור את מסכי המשלוחים:
         </p>
-        <p className="text-gray-700 leading-relaxed mt-3">
-          בשלבים הבאים ניצור: התחברות משתמשים, יצירת הזמנות משלוח,
-          מעקב סטטוסים, ואישור קבלה.
-        </p>
+        <ul className="mt-3 space-y-2 text-gray-700">
+          <li className="flex items-start gap-2">
+            <span className="text-blue-600">•</span>
+            יצירת בקשת משלוח חדשה (לסניף יעד / מחסן)
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-600">•</span>
+            רשימת המשלוחים שלי + סינון לפי סטטוס
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-600">•</span>
+            אישור קבלת משלוח עם בדיקת כמויות
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-600">•</span>
+            דוח משלוחים חודשי
+          </li>
+        </ul>
       </div>
 
       <div className="card">
-        <h3 className="font-bold mb-3">דוגמת צבעי סטטוס</h3>
+        <h3 className="font-bold mb-3">צבעי סטטוס במערכת</h3>
         <div className="flex flex-wrap gap-3">
           <span className="px-4 py-2 rounded-full bg-status-sent text-white text-sm font-medium">
             נשלח

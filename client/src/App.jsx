@@ -1,15 +1,33 @@
-// הקומפוננט הראשי של ה-Frontend
+// הקומפוננט הראשי - מגדיר את הניווט בין המסכים
 //
-// מגדיר את הניווט בין המסכים. כרגע יש רק מסך אחד (HomePage)
-// אבל המבנה הזה מאפשר להוסיף בקלות /login, /shipments וכו'.
+// /login   → מסך התחברות (פתוח)
+// /        → דשבורד ראשי (דורש login)
+// כל היתר → הפניה ל-/
 
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import LoginPage from './pages/LoginPage.jsx';
 import HomePage from './pages/HomePage.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
+import Layout from './components/Layout.jsx';
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      <Route path="/login" element={<LoginPage />} />
+
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <HomePage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* כל URL לא מוכר - חזרה הביתה */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
