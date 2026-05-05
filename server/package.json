@@ -1,0 +1,30 @@
+{
+  "name": "mia-inspiration-shipping-server",
+  "version": "0.1.0",
+  "description": "שרת Backend למערכת ניהול משלוחים — מייה אינספיריישן",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "keywords": [
+    "shipping",
+    "logistics",
+    "orian",
+    "mia-inspiration"
+  ],
+  "author": "Mia Inspiration Team (Zohar, Coral, Nofar)",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
