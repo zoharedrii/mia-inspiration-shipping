@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 
 import healthRouter from './routes/health.js';
+import orianRouter from './routes/orian.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -31,6 +32,9 @@ app.use(morgan('dev'));
 
 // /api/health - בדיקה שהשרת חי
 app.use('/api/health', healthRouter);
+
+// /api/orian - תקשורת עם API של חברת אוריין
+app.use('/api/orian', orianRouter);
 
 // === טיפול בשגיאות ===
 
