@@ -7,9 +7,14 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
+import './db/index.js'; // מאתחל את ה-DB ויוצר טבלאות
+import { seedIfEmpty } from './db/seed.js';
 import healthRouter from './routes/health.js';
 import orianRouter from './routes/orian.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+
+// מאכלס את ה-DB בנתוני התחלה אם הוא ריק
+await seedIfEmpty();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
