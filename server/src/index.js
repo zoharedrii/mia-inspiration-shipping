@@ -10,6 +10,7 @@ import morgan from 'morgan';
 import './db/index.js'; // מאתחל את ה-DB ויוצר טבלאות
 import { seedIfEmpty } from './db/seed.js';
 import healthRouter from './routes/health.js';
+import authRouter from './routes/auth.js';
 import orianRouter from './routes/orian.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
@@ -37,6 +38,9 @@ app.use(morgan('dev'));
 
 // /api/health - בדיקה שהשרת חי
 app.use('/api/health', healthRouter);
+
+// /api/auth - התחברות וניהול משתמשים מחוברים
+app.use('/api/auth', authRouter);
 
 // /api/orian - תקשורת עם API של חברת אוריין
 app.use('/api/orian', orianRouter);
