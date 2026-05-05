@@ -1,0 +1,40 @@
+/* טעינת Tailwind - 3 השכבות שלו: base (reset), components (custom), utilities */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === הגדרות גלובליות === */
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Heebo', system-ui, -apple-system, sans-serif;
+  background-color: #f9fafb;
+  color: #111827;
+  /* RTL מובנה דרך attribute dir="rtl" ב-HTML, אבל מוודאים גם כאן */
+  direction: rtl;
+}
+
+/* כפתורי CTA - 44px מינימום לפי הנחיות UX מהאפיון */
+@layer components {
+  .btn-primary {
+    @apply min-h-11 px-6 py-2.5 rounded-lg font-medium
+           bg-blue-600 text-white
+           hover:bg-blue-700 active:bg-blue-800
+           transition-colors;
+  }
+
+  .btn-secondary {
+    @apply min-h-11 px-6 py-2.5 rounded-lg font-medium
+           bg-gray-200 text-gray-900
+           hover:bg-gray-300 active:bg-gray-400
+           transition-colors;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm p-6 border border-gray-100;
+  }
+}
