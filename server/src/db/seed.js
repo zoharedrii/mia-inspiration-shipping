@@ -2,19 +2,20 @@
 //
 // מאכלס את ה-DB בנתוני בדיקה כשהוא ריק:
 // - מחסן מרכזי + 18 סניפים אמיתיים של רשת מייה אינספיריישן
-// - 5 משתמשים: מנהל, מחסן, ו-3 סניפי דוגמה
+// - משתמשים: admin, warehouse, ו-משתמש לכל סניף (שם משתמש = מספר הסניף)
 //
-// הסיסמה הראשונית של כולם: "password123" (לפיתוח בלבד!)
+// סיסמאות (לפיתוח):
+// - admin / warehouse: password123
+// - סניפים: Mia{מספר_סניף} - לדוגמה: Mia11, Mia19, Mia30
 
 import bcrypt from 'bcrypt';
 import db from './index.js';
 
 const BCRYPT_ROUNDS = 10;
-const DEFAULT_PASSWORD = 'password123';
+const ADMIN_PASSWORD = 'password123';
+const BRANCH_PASSWORD_PREFIX = 'Mia'; // סיסמת סניף = Mia + מספר הסניף
 
-// 18 סניפי מייה אינספיריישן + מחסן מרכזי.
-// branch_number = המספר הרשמי של הסניף ברשת (אין 24-25).
-// פורמט הטלפון: 050-19020XX (כשXX = מספר הסניף), חוץ מ-30 שיש לו מספר אחר.
+// 18 סניפי מייה אינספיריישן + מחסן מרכזי
 const BRANCHES = [
   // ====== מחסן מרכזי ======
   {
@@ -50,14 +51,32 @@ const BRANCHES = [
   { code: 'BR-30', branch_number: 30, name: 'מייה חוצות המפרץ',            city: 'חיפה',         contact_phone: '050-5172030' },
 ];
 
-// משתמשי דוגמה (כל אחד עם סיסמה password123)
-const USERS = [
-  { username: 'admin',     full_name: 'מנהל מערכת',                role: 'admin',     branch_code: null         },
-  { username: 'warehouse', full_name: 'מנהל מחסן מרכזי',           role: 'warehouse', branch_code: 'WH-CENTRAL' },
-  { username: 'ayalon',    full_name: 'מנהלת סניף איילון',         role: 'branch',    branch_code: 'BR-11'      },
-  { username: 'azrieli',   full_name: 'מנהלת סניף עזריאלי תל אביב', role: 'branch',    branch_code: 'BR-19'      },
-  { username: 'mamilla',   full_name: 'מנהלת סניף ממילא ירושלים',  role: 'branch',    branch_code: 'BR-28'      },
+// משתמשים גלובליים (ללא סניף ספציפי או למחסן)
+const ADMIN_USERS = [
+  { username: 'admin',     full_name: 'מנהל מערכת',         role: 'admin',     branch_code: null,         password: ADMIN_PASSWORD },
+  { username: 'warehouse', full_name: 'מנהל מחסן מרכזי',    role: 'warehouse', branch_code: 'WH-CENTRAL', password: ADMIN_PASSWORD },
 ];
+
+/**
+ * יוצר אוטומטית רשימת משתמשי סניפים מתוך BRANCHES.
+ * שם משתמש = מספר הסניף (כסטרינג). סיסמה = "Mia{מספר_סניף}".
+ * שם המשתמש המלא נגזר משם הסניף (מסיר את "מייה " מהתחילית).
+ */
+function buildBranchUsers() {
+  return BRANCHES
+    .filter((b) => !b.is_warehouse && b.branch_number)
+    .map((b) => {
+      // "מייה איילון" → "איילון"
+      const branchShortName = b.name.replace(/^מייה\s*/, '');
+      return {
+        username: String(b.branch_number),
+        full_name: `מנהלת סניף ${branchShortName}`,
+        role: 'branch',
+        branch_code: b.code,
+        password: `${BRANCH_PASSWORD_PREFIX}${b.branch_number}`,
+      };
+    });
+}
 
 /**
  * בודק אם ה-DB ריק. אם כן - מאכלס אותו.
@@ -72,9 +91,7 @@ export async function seedIfEmpty() {
 
   console.log('🌱 [Seed] ה-DB ריק - מאכלסת בנתוני התחלה...');
 
-  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, BCRYPT_ROUNDS);
-
-  // הכנסת סניפים
+  // ====== הכנסת סניפים ======
   const insertBranch = db.prepare(`
     INSERT INTO branches (code, branch_number, name, address, city, zip, phone, contact_name, contact_phone, is_warehouse)
     VALUES (@code, @branch_number, @name, @address, @city, @zip, @phone, @contact_name, @contact_phone, @is_warehouse)
@@ -97,7 +114,9 @@ export async function seedIfEmpty() {
 
   insertManyBranches(BRANCHES);
 
-  // הכנסת משתמשים
+  // ====== הכנסת משתמשים ======
+  const allUsers = [...ADMIN_USERS, ...buildBranchUsers()];
+
   const insertUser = db.prepare(`
     INSERT INTO users (username, password_hash, full_name, role, branch_id)
     VALUES (@username, @password_hash, @full_name, @role, @branch_id)
@@ -105,12 +124,20 @@ export async function seedIfEmpty() {
 
   const findBranchId = db.prepare('SELECT id FROM branches WHERE code = ?');
 
+  // הצפנת הסיסמאות (יקרה במקביל לכל משתמש)
+  const usersWithHash = await Promise.all(
+    allUsers.map(async (u) => ({
+      ...u,
+      password_hash: await bcrypt.hash(u.password, BCRYPT_ROUNDS),
+    }))
+  );
+
   const insertManyUsers = db.transaction((users) => {
     for (const user of users) {
       const branchId = user.branch_code ? findBranchId.get(user.branch_code)?.id : null;
       insertUser.run({
         username: user.username,
-        password_hash: passwordHash,
+        password_hash: user.password_hash,
         full_name: user.full_name,
         role: user.role,
         branch_id: branchId,
@@ -118,8 +145,11 @@ export async function seedIfEmpty() {
     }
   });
 
-  insertManyUsers(USERS);
+  insertManyUsers(usersWithHash);
 
-  console.log(`🌱 [Seed] נוספו ${BRANCHES.length} סניפים (1 מחסן + 18) ו-${USERS.length} משתמשים`);
-  console.log(`🌱 [Seed] סיסמה ראשונית לכולם: "${DEFAULT_PASSWORD}" (יש לשנות בפרודקשן!)`);
+  const branchUsersCount = allUsers.length - ADMIN_USERS.length;
+  console.log(`🌱 [Seed] נוצרו ${BRANCHES.length} סניפים (1 מחסן + 18) ו-${allUsers.length} משתמשים (${ADMIN_USERS.length} גלובליים + ${branchUsersCount} סניפים)`);
+  console.log(`🌱 [Seed] סיסמאות:`);
+  console.log(`🌱 [Seed]   - admin / warehouse: "${ADMIN_PASSWORD}"`);
+  console.log(`🌱 [Seed]   - סניפים: "${BRANCH_PASSWORD_PREFIX}{מספר סניף}" (לדוגמה: ${BRANCH_PASSWORD_PREFIX}11, ${BRANCH_PASSWORD_PREFIX}19)`);
 }

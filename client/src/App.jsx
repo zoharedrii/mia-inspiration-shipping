@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import HomePage from './pages/HomePage.jsx';
 import CreateShipmentPage from './pages/CreateShipmentPage.jsx';
 import ShipmentsListPage from './pages/ShipmentsListPage.jsx';
+import ShipmentDetailPage from './pages/ShipmentDetailPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Layout from './components/Layout.jsx';
 
@@ -45,6 +46,17 @@ export default function App() {
           <ProtectedRoute>
             <Layout>
               <CreateShipmentPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/shipments/:id"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <ShipmentDetailPage />
             </Layout>
           </ProtectedRoute>
         }

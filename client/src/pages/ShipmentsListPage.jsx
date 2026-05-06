@@ -137,14 +137,8 @@ export default function ShipmentsListPage() {
  * כרטיס בודד של משלוח ברשימה
  */
 function ShipmentCard({ shipment, userBranchId, userRole }) {
-  // האם המשלוח מגיע אליי? (להתראה ויזואלית)
-  const isIncoming =
-    userRole === 'branch' && shipment.target_branch_code &&
-    // מציאת ה-id של הסניף לא ישיר - בוחנים לפי השוואה אחרת
-    false; // (פיצ'ר עתידי - כרגע לא מסמנים)
-
   return (
-    <div className="card hover:shadow-md transition-shadow">
+    <Link to={`/shipments/${shipment.id}`} className="card hover:shadow-md hover:border-blue-200 transition-all block">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2 flex-1 min-w-0">
           {/* שורה ראשונה: מספר משלוח + סטטוס */}
@@ -189,6 +183,6 @@ function ShipmentCard({ shipment, userBranchId, userRole }) {
           <div className="mt-0.5">{shipment.created_by_full_name}</div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
