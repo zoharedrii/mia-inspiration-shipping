@@ -28,12 +28,15 @@ const USERS_TABLE = `
 // ====================================================================
 // branches - סניפי הרשת + מחסן מרכזי
 // ====================================================================
+// branch_number הוא המספר הרשמי של הסניף ברשת (11-30 לפי מייה).
+// הוא ייחודי, אבל יכול להיות NULL עבור המחסן המרכזי שאין לו מספר רשמי.
 const BRANCHES_TABLE = `
   CREATE TABLE IF NOT EXISTS branches (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     code            TEXT    UNIQUE NOT NULL,
+    branch_number   INTEGER UNIQUE,
     name            TEXT    NOT NULL,
-    address         TEXT    NOT NULL,
+    address         TEXT,
     city            TEXT    NOT NULL,
     zip             TEXT,
     phone           TEXT,

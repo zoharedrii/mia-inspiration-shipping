@@ -7,6 +7,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage.jsx';
 import HomePage from './pages/HomePage.jsx';
+import CreateShipmentPage from './pages/CreateShipmentPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Layout from './components/Layout.jsx';
 
@@ -21,6 +22,17 @@ export default function App() {
           <ProtectedRoute>
             <Layout>
               <HomePage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/shipments/new"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <CreateShipmentPage />
             </Layout>
           </ProtectedRoute>
         }
