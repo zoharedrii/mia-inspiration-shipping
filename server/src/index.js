@@ -11,6 +11,8 @@ import './db/index.js'; // מאתחל את ה-DB ויוצר טבלאות
 import { seedIfEmpty } from './db/seed.js';
 import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
+import branchesRouter from './routes/branches.js';
+import shipmentsRouter from './routes/shipments.js';
 import orianRouter from './routes/orian.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
@@ -41,6 +43,12 @@ app.use('/api/health', healthRouter);
 
 // /api/auth - התחברות וניהול משתמשים מחוברים
 app.use('/api/auth', authRouter);
+
+// /api/branches - רשימת סניפים (לטופס יצירת משלוח)
+app.use('/api/branches', branchesRouter);
+
+// /api/shipments - ניהול משלוחים
+app.use('/api/shipments', shipmentsRouter);
 
 // /api/orian - תקשורת עם API של חברת אוריין
 app.use('/api/orian', orianRouter);
