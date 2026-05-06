@@ -59,18 +59,23 @@ export default function HomePage() {
         )}
 
         {allowedActions.includes('list') && (
-          <div className="card opacity-50 cursor-not-allowed flex items-start gap-4">
-            <div className="h-12 w-12 rounded-xl bg-gray-100 text-gray-400
-                            flex items-center justify-center text-2xl">
+          <Link
+            to="/shipments"
+            className="card hover:shadow-md hover:border-blue-200 transition-all
+                       flex items-start gap-4 group"
+          >
+            <div className="h-12 w-12 rounded-xl bg-emerald-100 text-emerald-600
+                            flex items-center justify-center text-2xl
+                            group-hover:bg-emerald-600 group-hover:text-white transition-colors">
               📋
             </div>
             <div>
               <h3 className="font-bold text-gray-900">רשימת משלוחים</h3>
               <p className="text-sm text-gray-500 mt-1">
-                בקרוב — מעקב אחרי כל המשלוחים
+                מעקב אחרי כל המשלוחים שלך
               </p>
             </div>
-          </div>
+          </Link>
         )}
 
         {allowedActions.includes('reports') && (

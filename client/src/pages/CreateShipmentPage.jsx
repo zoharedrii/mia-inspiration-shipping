@@ -174,7 +174,7 @@ export default function CreateShipmentPage() {
               <option value="">-- בחרי סניף שולח --</option>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.name} ({b.city})
+                  {b.name}
                 </option>
               ))}
             </select>
