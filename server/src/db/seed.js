@@ -19,7 +19,7 @@ const DEFAULT_PASSWORD = 'password123';
 const BRANCHES = [
   {
     code: 'WH-CENTRAL',
-    name: 'מחסן מרכזי - שוהם',
+    name: 'מחסן מרכזי - מייה',
     address: 'הרימון 8',
     city: 'שוהם',
     zip: '6082935',
