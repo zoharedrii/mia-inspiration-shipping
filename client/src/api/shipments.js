@@ -56,6 +56,32 @@ export async function confirmShipmentReceipt(id, receivedCount, notes) {
   return data.shipment;
 }
 
+/**
+ * ביטול משלוח. השרת בודק הרשאות לפי תפקיד.
+ */
+export async function cancelShipment(id, reason) {
+  const { data } = await apiClient.post(`/shipments/${id}/cancel`, { reason });
+  return data.shipment;
+}
+
+/**
+ * האם המשתמש יכול לבטל את המשלוח (לפי הלוגיקה של ה-Backend).
+ * שימושי להחלטה אם להציג כפתור ביטול ב-UI.
+ */
+export function canCancelShipment(shipment, user) {
+  // אי אפשר לבטל אם המשלוח כבר התקבל/בוטל
+  if (['received', 'mismatch', 'cancelled'].includes(shipment.status)) {
+    return false;
+  }
+  // admin תמיד יכול לבטל
+  if (user.role === 'admin') return true;
+  // branch יכול לבטל רק משלוחים שהוא יצר בסטטוס pending
+  if (user.role === 'branch') {
+    return shipment.status === 'pending' && shipment.created_by === user.id;
+  }
+  return false;
+}
+
 // תוויות עבריות לסטטוסים
 export const STATUS_LABELS = {
   pending: 'ממתין',

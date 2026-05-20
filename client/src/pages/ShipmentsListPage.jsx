@@ -4,9 +4,10 @@
 // משתמש admin/warehouse/accounting רואה את כל המשלוחים.
 
 import { useEffect, useState } from 'react';
+// useState משמש גם ברכיב ShipmentCard למטה
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { listShipments, STATUS_LABELS, PACKAGE_TYPES } from '../api/shipments.js';
+import { listShipments, cancelShipment, canCancelShipment, STATUS_LABELS, PACKAGE_TYPES } from '../api/shipments.js';
 import StatusBadge from '../components/StatusBadge.jsx';
 
 // אפשרויות סינון - 'all' מציג הכל
@@ -126,7 +127,7 @@ export default function ShipmentsListPage() {
       {/* כרטיסי משלוחים */}
       <div className="grid grid-cols-1 gap-3">
         {shipments.map((s) => (
-          <ShipmentCard key={s.id} shipment={s} userBranchId={user.branch_id} userRole={user.role} />
+          <ShipmentCard key={s.id} shipment={s} user={user} onChanged={loadShipments} />
         ))}
       </div>
     </div>
@@ -136,9 +137,31 @@ export default function ShipmentsListPage() {
 /**
  * כרטיס בודד של משלוח ברשימה
  */
-function ShipmentCard({ shipment, userBranchId, userRole }) {
+function ShipmentCard({ shipment, user, onChanged }) {
+  const [cancelling, setCancelling] = useState(false);
+  const showCancelButton = canCancelShipment(shipment, user);
+
+  async function handleCancel(event) {
+    // עוצר את הקליק מלהפעיל את הלינק החיצוני
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!window.confirm(`לבטל את משלוח ${shipment.reference_id}? פעולה זו לא ניתנת להפיכה.`)) {
+      return;
+    }
+
+    setCancelling(true);
+    try {
+      await cancelShipment(shipment.id, 'בוטל מרשימת המשלוחים');
+      onChanged(); // טעינה מחדש של הרשימה
+    } catch (err) {
+      alert(err.response?.data?.error || 'הביטול נכשל');
+      setCancelling(false);
+    }
+  }
+
   return (
-    <Link to={`/shipments/${shipment.id}`} className="card hover:shadow-md hover:border-blue-200 transition-all block">
+    <Link to={`/shipments/${shipment.id}`} className="card hover:shadow-md hover:border-blue-200 transition-all block relative">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2 flex-1 min-w-0">
           {/* שורה ראשונה: מספר משלוח + סטטוס */}
@@ -177,10 +200,24 @@ function ShipmentCard({ shipment, userBranchId, userRole }) {
           </div>
         </div>
 
-        {/* תאריך + יוצר */}
-        <div className="text-xs text-gray-500 text-left whitespace-nowrap">
-          <div>{formatHebrewDate(shipment.created_at)}</div>
-          <div className="mt-0.5">{shipment.created_by_full_name}</div>
+        {/* תאריך + יוצר + כפתור ביטול אם רלוונטי */}
+        <div className="flex flex-col items-end gap-2">
+          <div className="text-xs text-gray-500 text-left whitespace-nowrap">
+            <div>{formatHebrewDate(shipment.created_at)}</div>
+            <div className="mt-0.5">{shipment.created_by_full_name}</div>
+          </div>
+          {showCancelButton && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="text-xs px-3 py-1 rounded-md bg-red-50 text-red-700 border border-red-200
+                         hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="ביטול המשלוח"
+            >
+              {cancelling ? '...' : '✕ ביטול'}
+            </button>
+          )}
         </div>
       </div>
     </Link>

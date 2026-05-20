@@ -91,6 +91,24 @@ router.get('/:id', requireAuth, (req, res) => {
 });
 
 /**
+ * POST /api/shipments/:id/cancel
+ * ביטול משלוח.
+ * הרשאות מובנות בשירות (admin/branch של היוצר בסטטוס pending).
+ *
+ * Body: { reason? }
+ */
+router.post('/:id/cancel', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { reason } = req.body || {};
+    const cancelled = shipments.cancelShipment(id, req.user, reason);
+    res.json({ shipment: cancelled });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ error: error.message });
+  }
+});
+
+/**
  * GET /api/shipments/:id/history
  * היסטוריית שינויי הסטטוס של המשלוח.
  */

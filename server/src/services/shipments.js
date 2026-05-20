@@ -167,6 +167,7 @@ export function getShipments(filters = {}) {
     SELECT
       s.id, s.reference_id, s.status, s.package_count, s.package_type,
       s.notes, s.received_count, s.created_at, s.updated_at, s.received_at,
+      s.source_branch_id, s.target_branch_id, s.created_by,
       src.code AS source_branch_code, src.name AS source_branch_name,
       tgt.code AS target_branch_code, tgt.name AS target_branch_name,
       creator.full_name AS created_by_full_name
@@ -191,6 +192,73 @@ export function getShipments(filters = {}) {
   params.push(limit);
 
   return db.prepare(sql).all(...params);
+}
+
+/**
+ * ביטול משלוח עם בדיקת הרשאות מובנית.
+ *
+ * - admin יכול לבטל בכל סטטוס "פתוח" (pending / sent)
+ * - branch יכול לבטל רק משלוח שהוא יצר ועדיין בסטטוס pending
+ * - שאר התפקידים לא יכולים לבטל
+ *
+ * @returns המשלוח אחרי הביטול
+ */
+export function cancelShipment(id, user, reason = null) {
+  const shipment = db.prepare('SELECT * FROM shipments WHERE id = ?').get(id);
+
+  if (!shipment) {
+    throw Object.assign(new Error('המשלוח לא נמצא'), { statusCode: 404 });
+  }
+
+  // בדיקה שהמשלוח ניתן לביטול
+  if (['received', 'mismatch', 'cancelled'].includes(shipment.status)) {
+    throw Object.assign(
+      new Error('לא ניתן לבטל משלוח שכבר התקבל או בוטל'),
+      { statusCode: 400 }
+    );
+  }
+
+  // בדיקת הרשאה לפי תפקיד
+  if (user.role === 'admin') {
+    // admin תמיד יכול
+  } else if (user.role === 'branch') {
+    // branch יכול לבטל רק משלוחים שהוא יצר ובסטטוס pending
+    if (shipment.created_by !== user.id) {
+      throw Object.assign(
+        new Error('ניתן לבטל רק משלוחים שיצרת בעצמך'),
+        { statusCode: 403 }
+      );
+    }
+    if (shipment.status !== 'pending') {
+      throw Object.assign(
+        new Error('ניתן לבטל רק משלוחים שעוד לא יצאו (סטטוס "ממתין")'),
+        { statusCode: 400 }
+      );
+    }
+  } else {
+    throw Object.assign(
+      new Error('אין הרשאה לבטל משלוח'),
+      { statusCode: 403 }
+    );
+  }
+
+  const finalReason = reason?.trim() || 'בוטל';
+
+  const transaction = db.transaction(() => {
+    db.prepare(
+      `UPDATE shipments
+       SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).run(id);
+
+    db.prepare(
+      `INSERT INTO shipment_status_history (shipment_id, old_status, new_status, changed_by, notes)
+       VALUES (?, ?, 'cancelled', ?, ?)`
+    ).run(id, shipment.status, user.id, finalReason);
+  });
+
+  transaction();
+  return getShipmentById(id);
 }
 
 /**
