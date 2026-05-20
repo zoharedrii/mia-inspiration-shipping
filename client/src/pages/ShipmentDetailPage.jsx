@@ -10,9 +10,11 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import {
   getShipment,
+  getShipmentHistory,
   updateShipmentStatus,
   confirmShipmentReceipt,
   PACKAGE_TYPES,
+  STATUS_LABELS,
 } from '../api/shipments.js';
 import StatusBadge from '../components/StatusBadge.jsx';
 
@@ -37,12 +39,25 @@ function formatDateTime(isoString) {
   });
 }
 
+// מחזיר מחלקת רקע לנקודה בטיימליין, לפי הסטטוס
+function getDotColor(status) {
+  const map = {
+    pending:   'bg-gray-400',
+    sent:      'bg-status-sent',
+    received:  'bg-status-received',
+    mismatch:  'bg-status-mismatch',
+    cancelled: 'bg-gray-500',
+  };
+  return map[status] || 'bg-gray-300';
+}
+
 export default function ShipmentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
 
   const [shipment, setShipment] = useState(null);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -50,8 +65,12 @@ export default function ShipmentDetailPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await getShipment(id);
+      const [data, historyData] = await Promise.all([
+        getShipment(id),
+        getShipmentHistory(id),
+      ]);
       setShipment(data);
+      setHistory(historyData);
     } catch (err) {
       setError(err.response?.data?.error || 'לא ניתן לטעון את המשלוח');
     } finally {
@@ -156,37 +175,46 @@ export default function ShipmentDetailPage() {
         )}
       </div>
 
-      {/* היסטוריית פעולות */}
-      <div className="card space-y-3">
-        <h2 className="font-bold text-gray-900">היסטוריה</h2>
-        <div className="text-sm space-y-2">
-          <div className="flex justify-between">
-            <span className="text-gray-600">נוצר על ידי:</span>
-            <span>{shipment.created_by_full_name}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">תאריך יצירה:</span>
-            <span>{formatDateTime(shipment.created_at)}</span>
-          </div>
-          {shipment.received_at && (
-            <>
-              <div className="flex justify-between">
-                <span className="text-gray-600">אושר על ידי:</span>
-                <span>{shipment.received_by_full_name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">תאריך אישור:</span>
-                <span>{formatDateTime(shipment.received_at)}</span>
-              </div>
-            </>
-          )}
-          {shipment.updated_at && shipment.updated_at !== shipment.created_at && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">עודכן לאחרונה:</span>
-              <span>{formatDateTime(shipment.updated_at)}</span>
-            </div>
-          )}
-        </div>
+      {/* טיימליין שינויי סטטוס */}
+      <div className="card space-y-4">
+        <h2 className="font-bold text-gray-900">היסטוריית סטטוסים</h2>
+
+        {history.length === 0 ? (
+          <p className="text-sm text-gray-500">לא נמצאו רשומות בהיסטוריה.</p>
+        ) : (
+          <ol className="relative border-r-2 border-gray-200 mr-3 space-y-5">
+            {history.map((entry) => (
+              <li key={entry.id} className="pr-6">
+                {/* נקודה צבעונית על הקו */}
+                <span
+                  className={`absolute right-[-7px] mt-1 h-3 w-3 rounded-full border-2 border-white shadow ${getDotColor(entry.new_status)}`}
+                />
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <StatusBadge status={entry.new_status} />
+                  {entry.old_status && (
+                    <span className="text-xs text-gray-400">
+                      (היה: {STATUS_LABELS[entry.old_status] || entry.old_status})
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-1 text-xs text-gray-500">
+                  {formatDateTime(entry.created_at)}
+                  {entry.changed_by_full_name && (
+                    <> · על ידי {entry.changed_by_full_name}</>
+                  )}
+                </div>
+
+                {entry.notes && (
+                  <div className="mt-1 text-sm text-gray-700 bg-gray-50 rounded px-2 py-1 inline-block">
+                    {entry.notes}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
 
       {/* פעולות אפשריות */}

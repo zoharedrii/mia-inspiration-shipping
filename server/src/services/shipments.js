@@ -135,6 +135,24 @@ export function getShipmentById(id) {
 }
 
 /**
+ * מחזיר את היסטוריית שינויי הסטטוס של משלוח, מהישן לחדש.
+ */
+export function getShipmentHistory(shipmentId) {
+  return db
+    .prepare(
+      `SELECT
+         h.id, h.old_status, h.new_status, h.notes, h.created_at,
+         u.username  AS changed_by_username,
+         u.full_name AS changed_by_full_name
+       FROM shipment_status_history h
+       LEFT JOIN users u ON h.changed_by = u.id
+       WHERE h.shipment_id = ?
+       ORDER BY h.created_at ASC, h.id ASC`
+    )
+    .all(shipmentId);
+}
+
+/**
  * מחזיר רשימת משלוחים, אופציונלית מסונן.
  *
  * @param {object} filters

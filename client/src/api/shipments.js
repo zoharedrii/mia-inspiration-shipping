@@ -30,6 +30,14 @@ export async function getShipment(id) {
 }
 
 /**
+ * היסטוריית שינויי סטטוס של משלוח (מהישן לחדש)
+ */
+export async function getShipmentHistory(id) {
+  const { data } = await apiClient.get(`/shipments/${id}/history`);
+  return data.history;
+}
+
+/**
  * שינוי סטטוס ידני (admin/warehouse)
  */
 export async function updateShipmentStatus(id, status, notes) {

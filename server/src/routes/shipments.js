@@ -91,6 +91,34 @@ router.get('/:id', requireAuth, (req, res) => {
 });
 
 /**
+ * GET /api/shipments/:id/history
+ * היסטוריית שינויי הסטטוס של המשלוח.
+ */
+router.get('/:id/history', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const shipment = shipments.getShipmentById(id);
+
+    if (!shipment) {
+      return res.status(404).json({ error: 'המשלוח לא נמצא' });
+    }
+
+    // משתמש branch רואה היסטוריה רק של משלוחים של הסניף שלו
+    if (
+      req.user.role === 'branch' &&
+      shipment.source_branch_id !== req.user.branch_id &&
+      shipment.target_branch_id !== req.user.branch_id
+    ) {
+      return res.status(403).json({ error: 'אין הרשאה לצפות במשלוח זה' });
+    }
+
+    res.json({ history: shipments.getShipmentHistory(id) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * PATCH /api/shipments/:id/status
  * שינוי סטטוס ידני.
  * הרשאה: admin, warehouse

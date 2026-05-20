@@ -128,6 +128,12 @@ export default function CreateShipmentPage() {
           <button onClick={resetForm} className="btn-primary flex-1 min-w-32">
             ליצור משלוח נוסף
           </button>
+          <Link
+            to="/shipments"
+            className="btn-secondary flex-1 min-w-32 text-center"
+          >
+            צפייה ברשימת משלוחים
+          </Link>
           <button
             onClick={() => navigate('/')}
             className="btn-secondary flex-1 min-w-32"
@@ -294,7 +300,7 @@ export default function CreateShipmentPage() {
             {submitting ? 'יוצרת...' : 'צור משלוח'}
           </button>
           <Link to="/" className="btn-secondary flex-1 min-w-32 text-center">
-            ביטול
+            חזרה לדף הבית
           </Link>
         </div>
       </form>
