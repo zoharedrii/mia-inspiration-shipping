@@ -13,6 +13,7 @@ import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
 import branchesRouter from './routes/branches.js';
 import shipmentsRouter from './routes/shipments.js';
+import reportsRouter from './routes/reports.js';
 import orianRouter from './routes/orian.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
@@ -49,6 +50,9 @@ app.use('/api/branches', branchesRouter);
 
 // /api/shipments - ניהול משלוחים
 app.use('/api/shipments', shipmentsRouter);
+
+// /api/reports - דוחות וניתוחים
+app.use('/api/reports', reportsRouter);
 
 // /api/orian - תקשורת עם API של חברת אוריין
 app.use('/api/orian', orianRouter);

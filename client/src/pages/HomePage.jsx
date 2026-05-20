@@ -13,11 +13,12 @@ const ROLE_LABELS = {
 };
 
 // אילו פעולות זמינות לכל תפקיד
+// דוחות זמינים רק למנהל מערכת ולמנהל מחסן (החלטה עסקית)
 const ACTIONS_BY_ROLE = {
-  admin: ['create', 'list'],
-  warehouse: ['create', 'list'],
-  branch: ['create', 'list'],
-  accounting: ['list', 'reports'],
+  admin:      ['create', 'list', 'reports'],
+  warehouse:  ['create', 'list', 'reports'],
+  branch:     ['create', 'list'],
+  accounting: ['list'],
 };
 
 export default function HomePage() {
@@ -79,18 +80,23 @@ export default function HomePage() {
         )}
 
         {allowedActions.includes('reports') && (
-          <div className="card opacity-50 cursor-not-allowed flex items-start gap-4">
-            <div className="h-12 w-12 rounded-xl bg-gray-100 text-gray-400
-                            flex items-center justify-center text-2xl">
+          <Link
+            to="/reports"
+            className="card hover:shadow-md hover:border-purple-200 transition-all
+                       flex items-start gap-4 group"
+          >
+            <div className="h-12 w-12 rounded-xl bg-purple-100 text-purple-600
+                            flex items-center justify-center text-2xl
+                            group-hover:bg-purple-600 group-hover:text-white transition-colors">
               📊
             </div>
             <div>
-              <h3 className="font-bold text-gray-900">דוחות</h3>
+              <h3 className="font-bold text-gray-900">דוחות וניתוחים</h3>
               <p className="text-sm text-gray-500 mt-1">
-                בקרוב — דוחות חודשיים ובקרה
+                דוח חודשי, אי-התאמות, פעילות סניף
               </p>
             </div>
-          </div>
+          </Link>
         )}
       </div>
 
