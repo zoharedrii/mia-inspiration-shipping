@@ -56,10 +56,15 @@ mia-inspiration-shipping/
 
 ---
 
-## 📚 קישורים שימושיים
+## 📚 תיעוד טכני מלא
 
-- [תיעוד API של אוריין](docs/orian-api.md) _(יתווסף בהמשך)_
-- [ארכיטקטורה ותרשימים](docs/architecture.md) _(יתווסף בהמשך)_
+| מסמך | תוכן |
+|------|------|
+| [API.md](docs/API.md) | תיעוד כל ה-endpoints (בקשות + תגובות + הרשאות) |
+| [DATABASE.md](docs/DATABASE.md) | Schema של ה-DB + תרשים יחסים (ERD) |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | ארכיטקטורת המערכת + זרימת הנתונים |
+| [PERMISSIONS.md](docs/PERMISSIONS.md) | מודל ההרשאות — מי יכול לעשות מה |
+| [FLOWS.md](docs/FLOWS.md) | תרחישי שימוש מלאים (Happy Path + Edge Cases) |
 
 ---
 
