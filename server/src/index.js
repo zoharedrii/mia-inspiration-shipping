@@ -11,6 +11,7 @@ import './db/index.js'; // מאתחל את ה-DB ויוצר טבלאות
 import { seedIfEmpty } from './db/seed.js';
 import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
+import usersRouter from './routes/users.js';
 import branchesRouter from './routes/branches.js';
 import shipmentsRouter from './routes/shipments.js';
 import reportsRouter from './routes/reports.js';
@@ -44,6 +45,9 @@ app.use('/api/health', healthRouter);
 
 // /api/auth - התחברות וניהול משתמשים מחוברים
 app.use('/api/auth', authRouter);
+
+// /api/users - ניהול משתמשים (admin בלבד)
+app.use('/api/users', usersRouter);
 
 // /api/branches - רשימת סניפים (לטופס יצירת משלוח)
 app.use('/api/branches', branchesRouter);

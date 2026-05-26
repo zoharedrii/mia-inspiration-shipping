@@ -11,6 +11,7 @@ import CreateShipmentPage from './pages/CreateShipmentPage.jsx';
 import ShipmentsListPage from './pages/ShipmentsListPage.jsx';
 import ShipmentDetailPage from './pages/ShipmentDetailPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
+import UsersPage from './pages/UsersPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Layout from './components/Layout.jsx';
 
@@ -69,6 +70,17 @@ export default function App() {
           <ProtectedRoute>
             <Layout>
               <ReportsPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <UsersPage />
             </Layout>
           </ProtectedRoute>
         }

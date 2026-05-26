@@ -158,10 +158,13 @@ export function getShipmentHistory(shipmentId) {
  * @param {object} filters
  * @param {string} [filters.status]      - סינון לפי סטטוס
  * @param {number} [filters.branch_id]   - מציג משלוחים שהסניף שולח או מקבל
+ * @param {string} [filters.search]      - חיפוש לפי reference_id (תת-מחרוזת)
+ * @param {string} [filters.from]        - תאריך התחלה (YYYY-MM-DD) - נכלל
+ * @param {string} [filters.to]          - תאריך סיום (YYYY-MM-DD) - לא נכלל
  * @param {number} [filters.limit=100]   - מקסימום תוצאות
  */
 export function getShipments(filters = {}) {
-  const { status, branch_id, limit = 100 } = filters;
+  const { status, branch_id, search, from, to, limit = 100 } = filters;
 
   let sql = `
     SELECT
@@ -186,6 +189,18 @@ export function getShipments(filters = {}) {
   if (branch_id) {
     sql += ' AND (s.source_branch_id = ? OR s.target_branch_id = ?)';
     params.push(branch_id, branch_id);
+  }
+  if (search && search.trim()) {
+    sql += ' AND s.reference_id LIKE ?';
+    params.push(`%${search.trim()}%`);
+  }
+  if (from) {
+    sql += ' AND s.created_at >= ?';
+    params.push(from);
+  }
+  if (to) {
+    sql += ' AND s.created_at < ?';
+    params.push(to);
   }
 
   sql += ' ORDER BY s.created_at DESC LIMIT ?';

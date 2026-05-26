@@ -37,14 +37,33 @@ export default function ShipmentsListPage() {
   const { user } = useAuth();
   const [shipments, setShipments] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Debounce על החיפוש - מחכים 400ms אחרי שמפסיקים להקליד
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(search.trim()), 400);
+    return () => clearTimeout(handle);
+  }, [search]);
 
   async function loadShipments() {
     setLoading(true);
     setError('');
     try {
-      const filters = filter === 'all' ? {} : { status: filter };
+      const filters = {};
+      if (filter !== 'all') filters.status = filter;
+      if (debouncedSearch) filters.search = debouncedSearch;
+      if (fromDate) filters.from = fromDate;
+      // to הוא לא כולל - נוסיף יום אחד כדי שיכלול את היום שנבחר
+      if (toDate) {
+        const next = new Date(toDate);
+        next.setDate(next.getDate() + 1);
+        filters.to = next.toISOString().slice(0, 10);
+      }
       const list = await listShipments(filters);
       setShipments(list);
     } catch (err) {
@@ -57,7 +76,16 @@ export default function ShipmentsListPage() {
   useEffect(() => {
     loadShipments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [filter, debouncedSearch, fromDate, toDate]);
+
+  function clearAllFilters() {
+    setSearch('');
+    setFromDate('');
+    setToDate('');
+    setFilter('all');
+  }
+
+  const hasActiveFilters = filter !== 'all' || debouncedSearch || fromDate || toDate;
 
   const isBranchUser = user.role === 'branch';
 
@@ -82,9 +110,52 @@ export default function ShipmentsListPage() {
         </div>
       </header>
 
-      {/* סינון לפי סטטוס */}
-      <div className="card !p-2">
-        <div className="flex flex-wrap gap-1">
+      {/* חיפוש + סינון מתקדם */}
+      <div className="card space-y-3">
+        {/* שורה ראשונה: חיפוש לפי מספר */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            חיפוש לפי מספר משלוח
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full px-3 py-2 pr-9 border border-gray-300 rounded-lg
+                         focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="לדוגמה: SHP-20260520 או חלק ממנו"
+            />
+            <span className="absolute right-3 top-2.5 text-gray-400">🔍</span>
+          </div>
+        </div>
+
+        {/* שורה שנייה: טווח תאריכים */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">מתאריך</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg
+                         focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">עד תאריך</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg
+                         focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* שורה שלישית: סינון לפי סטטוס + ניקוי */}
+        <div className="flex flex-wrap gap-1 items-center pt-2 border-t border-gray-100">
           {FILTERS.map((f) => (
             <button
               key={f.value}
@@ -98,6 +169,14 @@ export default function ShipmentsListPage() {
               {f.label}
             </button>
           ))}
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              className="px-3 py-2 mr-auto text-xs text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md"
+            >
+              ✕ נקה סינון
+            </button>
+          )}
         </div>
       </div>
 

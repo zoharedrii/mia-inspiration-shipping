@@ -44,10 +44,13 @@ router.post('/', requireAuth, requireRole('admin', 'warehouse', 'branch'), (req,
  */
 router.get('/', requireAuth, (req, res) => {
   try {
-    const { status, branch_id } = req.query;
+    const { status, branch_id, search, from, to } = req.query;
     const filters = {};
 
     if (status) filters.status = status;
+    if (search) filters.search = search;
+    if (from) filters.from = from;
+    if (to) filters.to = to;
 
     // הגבלת תצוגה לסניף שלו אם המשתמש הוא branch
     if (req.user.role === 'branch') {

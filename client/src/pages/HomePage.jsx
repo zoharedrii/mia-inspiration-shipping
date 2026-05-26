@@ -14,8 +14,9 @@ const ROLE_LABELS = {
 
 // אילו פעולות זמינות לכל תפקיד
 // דוחות זמינים רק למנהל מערכת ולמנהל מחסן (החלטה עסקית)
+// ניהול משתמשים - admin בלבד
 const ACTIONS_BY_ROLE = {
-  admin:      ['create', 'list', 'reports'],
+  admin:      ['create', 'list', 'reports', 'users'],
   warehouse:  ['create', 'list', 'reports'],
   branch:     ['create', 'list'],
   accounting: ['list'],
@@ -94,6 +95,26 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-900">דוחות וניתוחים</h3>
               <p className="text-sm text-gray-500 mt-1">
                 דוח חודשי, אי-התאמות, פעילות סניף
+              </p>
+            </div>
+          </Link>
+        )}
+
+        {allowedActions.includes('users') && (
+          <Link
+            to="/users"
+            className="card hover:shadow-md hover:border-amber-200 transition-all
+                       flex items-start gap-4 group"
+          >
+            <div className="h-12 w-12 rounded-xl bg-amber-100 text-amber-700
+                            flex items-center justify-center text-2xl
+                            group-hover:bg-amber-600 group-hover:text-white transition-colors">
+              👥
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">ניהול משתמשים</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                הוספה, עריכה והשבתה של עובדים
               </p>
             </div>
           </Link>
