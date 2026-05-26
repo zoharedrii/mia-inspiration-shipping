@@ -43,6 +43,7 @@ export default function ShipmentsListPage() {
   const [toDate, setToDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedIds, setSelectedIds] = useState(new Set());
 
   // Debounce על החיפוש - מחכים 400ms אחרי שמפסיקים להקליד
   useEffect(() => {
@@ -86,6 +87,31 @@ export default function ShipmentsListPage() {
   }
 
   const hasActiveFilters = filter !== 'all' || debouncedSearch || fromDate || toDate;
+
+  // ====== בחירת משלוחים להדפסה ======
+  function toggleSelected(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === shipments.length && shipments.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(shipments.map((s) => s.id)));
+    }
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  const allSelected = shipments.length > 0 && selectedIds.size === shipments.length;
+  const batchUrl = '/shipments/labels?ids=' + Array.from(selectedIds).join(',');
 
   const isBranchUser = user.role === 'branch';
 
@@ -203,10 +229,54 @@ export default function ShipmentsListPage() {
         </div>
       )}
 
+      {/* פס פעולות מרובות - מופיע רק כשיש בחירה */}
+      {shipments.length > 0 && (
+        <div className="card !p-3 flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleSelectAll}
+              className="w-4 h-4 cursor-pointer"
+            />
+            <span>בחר הכל</span>
+          </label>
+
+          {selectedIds.size > 0 && (
+            <>
+              <div className="text-sm text-gray-600 mx-2">
+                נבחרו: <strong>{selectedIds.size}</strong> משלוחים
+              </div>
+              <a
+                href={batchUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1"
+              >
+                🖨️ הדפסת מדבקות
+              </a>
+              <button
+                onClick={clearSelection}
+                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+              >
+                ניקוי בחירה
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* כרטיסי משלוחים */}
       <div className="grid grid-cols-1 gap-3">
         {shipments.map((s) => (
-          <ShipmentCard key={s.id} shipment={s} user={user} onChanged={loadShipments} />
+          <ShipmentCard
+            key={s.id}
+            shipment={s}
+            user={user}
+            onChanged={loadShipments}
+            selected={selectedIds.has(s.id)}
+            onToggleSelect={() => toggleSelected(s.id)}
+          />
         ))}
       </div>
     </div>
@@ -216,7 +286,7 @@ export default function ShipmentsListPage() {
 /**
  * כרטיס בודד של משלוח ברשימה
  */
-function ShipmentCard({ shipment, user, onChanged }) {
+function ShipmentCard({ shipment, user, onChanged, selected, onToggleSelect }) {
   const [cancelling, setCancelling] = useState(false);
   const showCancelButton = canCancelShipment(shipment, user);
 
@@ -239,8 +309,30 @@ function ShipmentCard({ shipment, user, onChanged }) {
     }
   }
 
+  function handleCheckboxClick(event) {
+    // עוצר את הקליק מלהפעיל את ה-Link
+    event.preventDefault();
+    event.stopPropagation();
+    onToggleSelect();
+  }
+
   return (
-    <Link to={`/shipments/${shipment.id}`} className="card hover:shadow-md hover:border-blue-200 transition-all block relative">
+    <Link
+      to={`/shipments/${shipment.id}`}
+      className={`card hover:shadow-md transition-all block relative ${
+        selected ? 'border-blue-400 bg-blue-50/40' : 'hover:border-blue-200'
+      }`}
+    >
+      {/* Checkbox לבחירה */}
+      <div className="absolute top-3 left-3" onClick={handleCheckboxClick}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => {}}
+          className="w-4 h-4 cursor-pointer"
+          title="בחירה להדפסת מדבקה"
+        />
+      </div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2 flex-1 min-w-0">
           {/* שורה ראשונה: מספר משלוח + סטטוס */}

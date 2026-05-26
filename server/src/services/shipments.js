@@ -4,6 +4,7 @@
 // כולל יצירה, שאילתות, שינוי סטטוס, ורישום אוטומטי בהיסטוריה.
 
 import db from '../db/index.js';
+import { createTransportationOrder } from './orian/transportation.js';
 
 const VALID_STATUSES = ['pending', 'sent', 'received', 'mismatch', 'cancelled'];
 const VALID_PACKAGE_TYPES = ['01', '02', '03', '05']; // לפי מסמכי אוריין
@@ -21,13 +22,17 @@ function generateReferenceId() {
 
 /**
  * יצירת משלוח חדש ב-DB.
- * הסטטוס ההתחלתי הוא 'pending' - המערכת עדיין לא שלחה לאוריין.
+ * הסטטוס ההתחלתי הוא 'pending'.
+ *
+ * אחרי שמירה ב-DB, השרת קורא ל-API של אוריין (בפועל או דמה לפי ORIAN_MODE)
+ * ושומר את מזהה ההזמנה שהוחזר. אם אוריין נכשלת, המשלוח עדיין נשמר (ניתן
+ * לטפל בידיים מאוחר יותר).
  *
  * @param {object} data - פרטי המשלוח
  * @param {number} createdByUserId - מי יוצר את המשלוח
- * @returns {object} המשלוח שנוצר (כולל ID ו-reference_id)
+ * @returns {Promise<object>} המשלוח שנוצר (כולל ID ו-reference_id)
  */
-export function createShipment(data, createdByUserId) {
+export async function createShipment(data, createdByUserId) {
   const {
     source_branch_id,
     target_branch_id,
@@ -103,6 +108,43 @@ export function createShipment(data, createdByUserId) {
   });
 
   const newId = transaction();
+
+  // קריאה לאוריין (mock או live לפי ENV) - אחרי שהמשלוח נשמר
+  try {
+    const sourceBranch = db.prepare('SELECT * FROM branches WHERE id = ?').get(source_branch_id);
+    const targetBranch = db.prepare('SELECT * FROM branches WHERE id = ?').get(target_branch_id);
+    const newShipment = getShipmentById(newId);
+
+    const orianResult = await createTransportationOrder({
+      shipment: newShipment,
+      sourceBranch,
+      targetBranch,
+    });
+
+    if (orianResult?.orian_order_id) {
+      db.prepare(
+        'UPDATE shipments SET orian_order_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      ).run(orianResult.orian_order_id, newId);
+
+      // רושמים בהיסטוריה שאוריין קיבלה את ההזמנה
+      db.prepare(
+        `INSERT INTO shipment_status_history (shipment_id, old_status, new_status, changed_by, notes)
+         VALUES (?, 'pending', 'pending', ?, ?)`
+      ).run(
+        newId,
+        createdByUserId,
+        `התקבל מזהה אוריין: ${orianResult.orian_order_id} (${orianResult.source})`
+      );
+    }
+  } catch (orianError) {
+    // אם אוריין נכשלה - לא מבטלים את המשלוח, אבל רושמים אזהרה
+    console.error('⚠️  [Shipments] קריאה לאוריין נכשלה:', orianError.message);
+    db.prepare(
+      `INSERT INTO shipment_status_history (shipment_id, old_status, new_status, changed_by, notes)
+       VALUES (?, 'pending', 'pending', ?, ?)`
+    ).run(newId, createdByUserId, `כשל בקריאה לאוריין: ${orianError.message}`);
+  }
+
   return getShipmentById(newId);
 }
 
@@ -114,12 +156,20 @@ export function getShipmentById(id) {
     .prepare(
       `SELECT
          s.*,
-         src.code  AS source_branch_code,
-         src.name  AS source_branch_name,
-         src.city  AS source_branch_city,
-         tgt.code  AS target_branch_code,
-         tgt.name  AS target_branch_name,
-         tgt.city  AS target_branch_city,
+         src.code AS source_branch_code,
+         src.branch_number AS source_branch_number,
+         src.name AS source_branch_name,
+         src.city AS source_branch_city,
+         src.address AS source_branch_address,
+         src.contact_name AS source_contact_name,
+         src.contact_phone AS source_contact_phone,
+         tgt.code AS target_branch_code,
+         tgt.branch_number AS target_branch_number,
+         tgt.name AS target_branch_name,
+         tgt.city AS target_branch_city,
+         tgt.address AS target_branch_address,
+         tgt.contact_name AS target_contact_name,
+         tgt.contact_phone AS target_contact_phone,
          creator.username  AS created_by_username,
          creator.full_name AS created_by_full_name,
          receiver.username  AS received_by_username,

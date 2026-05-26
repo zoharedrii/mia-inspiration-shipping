@@ -16,7 +16,7 @@ const router = Router();
  *
  * Body: { source_branch_id, target_branch_id, package_count, package_type?, notes? }
  */
-router.post('/', requireAuth, requireRole('admin', 'warehouse', 'branch'), (req, res) => {
+router.post('/', requireAuth, requireRole('admin', 'warehouse', 'branch'), async (req, res) => {
   try {
     // אם המשתמש הוא branch - מאלצים את source_branch להיות הסניף שלו
     const data = { ...req.body };
@@ -27,7 +27,7 @@ router.post('/', requireAuth, requireRole('admin', 'warehouse', 'branch'), (req,
       data.source_branch_id = req.user.branch_id;
     }
 
-    const shipment = shipments.createShipment(data, req.user.id);
+    const shipment = await shipments.createShipment(data, req.user.id);
     res.status(201).json({ shipment });
   } catch (error) {
     res.status(error.statusCode || 500).json({ error: error.message });

@@ -125,7 +125,17 @@ export default function ShipmentDetailPage() {
             </h1>
             <p className="text-gray-600 mt-1">פרטי משלוח</p>
           </div>
-          <StatusBadge status={shipment.status} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <StatusBadge status={shipment.status} />
+            <Link
+              to={`/shipments/${shipment.id}/label`}
+              className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 border border-gray-300
+                         rounded-md hover:bg-gray-200 transition-colors"
+              title="הצגת מדבקת המשלוח (לוגיסטיקה)"
+            >
+              🖨️ מדבקה
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -172,6 +182,13 @@ export default function ShipmentDetailPage() {
 
         {shipment.notes && (
           <DetailRow label="הערות" value={shipment.notes} />
+        )}
+
+        {shipment.orian_order_id && (
+          <div className="pt-3 border-t border-gray-100">
+            <div className="text-xs text-gray-500 mb-0.5">מזהה אוריין (Tracking)</div>
+            <div className="font-mono text-sm text-gray-800">{shipment.orian_order_id}</div>
+          </div>
         )}
       </div>
 

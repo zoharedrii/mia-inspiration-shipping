@@ -6,4 +6,5 @@
 
 export { login, logout, getToken, hasValidToken } from './auth.js';
 export { parseXml, buildXml } from './xml.js';
+export { createTransportationOrder } from './transportation.js';
 export { default as client } from './client.js';

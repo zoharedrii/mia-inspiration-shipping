@@ -12,6 +12,8 @@ import ShipmentsListPage from './pages/ShipmentsListPage.jsx';
 import ShipmentDetailPage from './pages/ShipmentDetailPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
+import LabelPage from './pages/LabelPage.jsx';
+import LabelsBatchPage from './pages/LabelsBatchPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Layout from './components/Layout.jsx';
 
@@ -82,6 +84,25 @@ export default function App() {
             <Layout>
               <UsersPage />
             </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* מדבקות (בודדת ובאצווה) - בלי Layout כי בהדפסה רוצים רק את המדבקה */}
+      <Route
+        path="/shipments/labels"
+        element={
+          <ProtectedRoute>
+            <LabelsBatchPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/shipments/:id/label"
+        element={
+          <ProtectedRoute>
+            <LabelPage />
           </ProtectedRoute>
         }
       />
