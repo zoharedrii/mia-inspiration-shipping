@@ -1,8 +1,9 @@
 // מסך התחברות
 
 import { useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import PasswordInput from '../components/PasswordInput.jsx';
 
 export default function LoginPage() {
   const { login, isAuthenticated, loading: authLoading } = useAuth();
@@ -69,18 +70,18 @@ export default function LoginPage() {
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
               סיסמה
             </label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
-              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={submitting}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                         disabled:bg-gray-100"
             />
+            <div className="mt-2 text-left">
+              <Link to="/forgot-password" className="text-xs text-blue-600 hover:text-blue-800 hover:underline">
+                שכחתי סיסמה?
+              </Link>
+            </div>
           </div>
 
           {error && (

@@ -57,6 +57,23 @@ export default function UsersPage() {
       {/* טופס יצירת משתמש חדש */}
       <CreateUserForm branches={branches} onCreated={loadData} />
 
+      {/* התראה על בקשות איפוס סיסמה ממתינות */}
+      {!loading && users.some((u) => u.password_reset_requested_at) && (
+        <div className="card border-amber-300 bg-amber-50 text-amber-900">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">🔔</span>
+            <div className="flex-1">
+              <div className="font-bold mb-1">
+                {users.filter((u) => u.password_reset_requested_at).length} משתמשים ביקשו איפוס סיסמה
+              </div>
+              <div className="text-sm">
+                מסומנים עם 🔔 בטבלה למטה. לחצי "איפוס סיסמה" כדי לטפל בבקשה — הבקשה תיסגר אוטומטית אחרי האיפוס.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* רשימת המשתמשים */}
       {loading ? (
         <div className="card text-center text-gray-500">טוען...</div>
@@ -300,9 +317,18 @@ function UserRow({ user, currentUserId, onEdit, onChanged }) {
     }
   }
 
+  const hasResetRequest = Boolean(user.password_reset_requested_at);
+
   return (
-    <tr className={`border-b border-gray-50 ${!user.is_active ? 'opacity-50' : ''}`}>
-      <td className="py-2 px-2 font-mono text-xs">{user.username}</td>
+    <tr className={`border-b border-gray-50
+        ${!user.is_active ? 'opacity-50' : ''}
+        ${hasResetRequest ? 'bg-amber-50' : ''}`}>
+      <td className="py-2 px-2 font-mono text-xs">
+        {hasResetRequest && (
+          <span className="ml-1" title="ביקש איפוס סיסמה">🔔</span>
+        )}
+        {user.username}
+      </td>
       <td className="py-2 px-2">{user.full_name}</td>
       <td className="py-2 px-2">
         <span className="px-2 py-0.5 rounded text-xs bg-gray-100">
@@ -327,9 +353,14 @@ function UserRow({ user, currentUserId, onEdit, onChanged }) {
           </button>
           <button
             onClick={handleResetPassword}
-            className="text-xs px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+            className={`text-xs px-2 py-1 rounded border ${
+              hasResetRequest
+                ? 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600 font-bold animate-pulse'
+                : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+            }`}
+            title={hasResetRequest ? 'יש בקשת איפוס ממתינה!' : 'איפוס סיסמה'}
           >
-            איפוס סיסמה
+            {hasResetRequest ? '🔔 איפוס סיסמה' : 'איפוס סיסמה'}
           </button>
           {!isSelf && (
             <button

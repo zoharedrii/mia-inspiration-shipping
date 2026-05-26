@@ -22,6 +22,7 @@ export function findByUsername(username) {
 export function findById(id, includeInactive = false) {
   const sql = `
     SELECT u.id, u.username, u.full_name, u.role, u.branch_id, u.is_active, u.created_at,
+           u.password_reset_requested_at,
            b.name AS branch_name, b.code AS branch_code
     FROM users u
     LEFT JOIN branches b ON u.branch_id = b.id
@@ -38,10 +39,12 @@ export function listAll() {
   return db
     .prepare(
       `SELECT u.id, u.username, u.full_name, u.role, u.branch_id, u.is_active, u.created_at,
+              u.password_reset_requested_at,
               b.name AS branch_name, b.code AS branch_code, b.branch_number
        FROM users u
        LEFT JOIN branches b ON u.branch_id = b.id
        ORDER BY
+         u.password_reset_requested_at IS NULL,
          CASE u.role WHEN 'admin' THEN 1 WHEN 'warehouse' THEN 2 WHEN 'accounting' THEN 3 ELSE 4 END,
          u.is_active DESC,
          u.username ASC`
@@ -165,7 +168,8 @@ export function setActive(id, isActive, currentUserId) {
 }
 
 /**
- * איפוס סיסמה - admin יכול לאפס סיסמה של כל משתמש
+ * איפוס סיסמה - admin יכול לאפס סיסמה של כל משתמש.
+ * אם הייתה בקשת איפוס פתוחה — היא נסגרת אוטומטית.
  */
 export async function resetPassword(id, newPassword) {
   if (!newPassword || newPassword.length < 4) {
@@ -178,6 +182,37 @@ export async function resetPassword(id, newPassword) {
   }
 
   const password_hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(password_hash, id);
+  db.prepare(
+    `UPDATE users
+     SET password_hash = ?,
+         password_reset_requested_at = NULL
+     WHERE id = ?`
+  ).run(password_hash, id);
+  return { ok: true };
+}
+
+/**
+ * בקשת איפוס סיסמה ע"י המשתמש עצמו (לפני התחברות).
+ *
+ * מטעמי אבטחה: גם אם המשתמש לא קיים — לא חושפים את זה ללקוח.
+ * מחזירים תמיד הצלחה. אם המשתמש קיים — מסמנים שיש בקשה.
+ */
+export function requestPasswordReset(username) {
+  if (!username || !username.trim()) {
+    throw Object.assign(new Error('יש להזין שם משתמש'), { statusCode: 400 });
+  }
+
+  const user = db
+    .prepare('SELECT id FROM users WHERE username = ? AND is_active = 1')
+    .get(username.trim());
+
+  if (user) {
+    db.prepare(
+      `UPDATE users SET password_reset_requested_at = CURRENT_TIMESTAMP WHERE id = ?`
+    ).run(user.id);
+    console.log(`🔔 [Auth] בקשת איפוס סיסמה עבור משתמש: ${username}`);
+  }
+
+  // תמיד מחזירים הצלחה - לא חושפים האם המשתמש קיים
   return { ok: true };
 }

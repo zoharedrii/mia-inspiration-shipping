@@ -13,17 +13,30 @@
 // - branch: עובד סניף (יצירה + אישור קבלה בסניף שלו)
 const USERS_TABLE = `
   CREATE TABLE IF NOT EXISTS users (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    username        TEXT    UNIQUE NOT NULL,
-    password_hash   TEXT    NOT NULL,
-    full_name       TEXT    NOT NULL,
-    role            TEXT    NOT NULL CHECK(role IN ('admin', 'accounting', 'warehouse', 'branch')),
-    branch_id       INTEGER,
-    is_active       INTEGER NOT NULL DEFAULT 1,
-    created_at      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id                              INTEGER PRIMARY KEY AUTOINCREMENT,
+    username                        TEXT    UNIQUE NOT NULL,
+    password_hash                   TEXT    NOT NULL,
+    full_name                       TEXT    NOT NULL,
+    role                            TEXT    NOT NULL CHECK(role IN ('admin', 'accounting', 'warehouse', 'branch')),
+    branch_id                       INTEGER,
+    is_active                       INTEGER NOT NULL DEFAULT 1,
+    password_reset_requested_at     TEXT,
+    created_at                      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (branch_id) REFERENCES branches(id)
   );
 `;
+
+// migration: הוספת עמודות חדשות לטבלאות קיימות (לא הורסת data)
+const MIGRATIONS = [
+  // password_reset_requested_at - שדה לבקשת איפוס סיסמה (נוסף בגרסה מאוחרת)
+  () => {
+    const cols = db => db.prepare("PRAGMA table_info(users)").all();
+    return {
+      sql: `ALTER TABLE users ADD COLUMN password_reset_requested_at TEXT`,
+      shouldRun: (db) => !cols(db).some((c) => c.name === 'password_reset_requested_at'),
+    };
+  },
+];
 
 // ====================================================================
 // branches - סניפי הרשת + מחסן מרכזי
@@ -125,6 +138,19 @@ export function initSchema(db) {
   // אינדקסים
   for (const indexSql of INDEXES) {
     db.exec(indexSql);
+  }
+
+  // הרצת migrations - הוספת עמודות חדשות לטבלאות קיימות
+  for (const migrationFn of MIGRATIONS) {
+    const migration = migrationFn();
+    if (migration.shouldRun(db)) {
+      try {
+        db.exec(migration.sql);
+        console.log(`📦 [DB] migration הופעלה: ${migration.sql}`);
+      } catch (err) {
+        console.warn(`📦 [DB] migration נכשלה (אולי כבר רצה): ${err.message}`);
+      }
+    }
   }
 
   console.log('📦 [DB] סכמה אותחלה (4 טבלאות + אינדקסים)');
