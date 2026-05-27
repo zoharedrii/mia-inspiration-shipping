@@ -99,7 +99,14 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 card bg-blue-50/50 border-blue-100">
+        <div className="mt-4 p-3 rounded-lg bg-gray-50 border border-gray-200 text-center text-sm text-gray-600">
+          נתקלת בבעיה? צרי קשר עם מנהל המערכת בטלפון:{' '}
+          <a href="tel:08-9380937" className="font-medium text-blue-600 hover:text-blue-800" dir="ltr">
+            08-9380937
+          </a>
+        </div>
+
+        <div className="mt-4 card bg-blue-50/50 border-blue-100">
           <h3 className="font-medium text-sm text-gray-700 mb-2">פרטי כניסה</h3>
           <div className="text-xs text-gray-600 space-y-2">
             <div>

@@ -49,6 +49,13 @@ export default function ForgotPasswordPage() {
             <Link to="/login" className="btn-primary inline-block">
               חזרה למסך התחברות
             </Link>
+
+            <div className="pt-3 border-t border-gray-200 text-sm text-gray-600">
+              רוצה לזרז? התקשרי למנהל המערכת:{' '}
+              <a href="tel:08-9380937" className="font-medium text-blue-600 hover:text-blue-800" dir="ltr">
+                08-9380937
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -111,6 +118,13 @@ export default function ForgotPasswordPage() {
             </Link>
           </div>
         </form>
+
+        <div className="mt-4 p-3 rounded-lg bg-gray-50 border border-gray-200 text-center text-sm text-gray-600">
+          לא זוכרת את שם המשתמש? התקשרי למנהל המערכת:{' '}
+          <a href="tel:08-9380937" className="font-medium text-blue-600 hover:text-blue-800" dir="ltr">
+            08-9380937
+          </a>
+        </div>
       </div>
     </div>
   );
