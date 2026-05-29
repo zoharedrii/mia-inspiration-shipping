@@ -16,6 +16,7 @@ import {
 import { listBranches } from '../api/branches.js';
 import { STATUS_LABELS, STATUS_CLASSES } from '../api/shipments.js';
 import StatusBadge from '../components/StatusBadge.jsx';
+import { downloadCSV } from '../utils/csvExport.js';
 
 const TABS = [
   { id: 'monthly',  label: 'חודשי' },
@@ -121,15 +122,44 @@ function MonthlyTab() {
             { label: 'נשלחו',           value: data.summary.sent,        color: 'blue' },
             { label: 'התקבלו',          value: data.summary.received,    color: 'emerald' },
             { label: 'אי-התאמות',       value: data.summary.mismatch,    color: 'amber' },
-            { label: 'בוטלו',            value: data.summary.cancelled,   color: 'gray' },
+            { label: 'בוטלו',            value: data.summary.cancelled,   color: 'red' },
             { label: 'מארזים שנשלחו',   value: data.summary.total_packages },
             { label: 'מארזים שהתקבלו', value: data.summary.received_packages },
+            { label: 'זמן ממוצע להפצה',
+              value: data.summary.avg_delivery_days != null
+                ? `${data.summary.avg_delivery_days} ימים`
+                : 'אין נתונים',
+              color: 'blue' },
           ]} />
+
+          <ExportCsvButton
+            label="הורדת דוח חודשי כ-CSV"
+            filename={`shipments-${data.period}`}
+            headers={['מספר משלוח', 'מאת', 'אל', 'סטטוס', 'מארזים', 'תאריך יצירה']}
+            rows={data.shipments.map((s) => [
+              s.reference_id, s.source_name, s.target_name,
+              STATUS_LABELS[s.status] || s.status,
+              s.package_count, s.created_at,
+            ])}
+          />
 
           <ShipmentsTable shipments={data.shipments} />
         </>
       )}
     </div>
+  );
+}
+
+// כפתור הורדת CSV - לשימוש חוזר
+function ExportCsvButton({ label, filename, headers, rows }) {
+  return (
+    <button
+      onClick={() => downloadCSV(filename, headers, rows)}
+      className="px-3 py-2 text-sm bg-emerald-50 text-emerald-700 border border-emerald-200
+                 rounded-md hover:bg-emerald-100 transition-colors inline-flex items-center gap-2"
+    >
+      💾 {label}
+    </button>
   );
 }
 
@@ -182,6 +212,18 @@ function MismatchTab() {
             { label: 'מארזים חסרים', value: Math.abs(data.summary.total_shortage), color: 'red' },
             { label: 'מארזים עודפים', value: data.summary.total_excess,  color: 'blue' },
           ]} />
+
+          {data.shipments.length > 0 && (
+            <ExportCsvButton
+              label="הורדת דוח אי-התאמות כ-CSV"
+              filename={`mismatches-${from}-to-${to}`}
+              headers={['מספר משלוח', 'מאת', 'אל', 'נשלחו', 'התקבלו', 'הפרש', 'תאריך']}
+              rows={data.shipments.map((s) => [
+                s.reference_id, s.source_name, s.target_name,
+                s.package_count, s.received_count, s.diff, s.received_at,
+              ])}
+            />
+          )}
 
           {data.shipments.length === 0 ? (
             <div className="card text-center text-gray-500">אין אי-התאמות בטווח שנבחר 🎉</div>
@@ -251,6 +293,19 @@ function ActiveTab() {
             { label: 'נשלחו',          value: data.summary.sent_count,     color: 'blue' },
             { label: '3+ ימים ללא סיום', value: data.summary.overdue_count,  color: 'red' },
           ]} />
+
+          {data.shipments.length > 0 && (
+            <ExportCsvButton
+              label="הורדת דוח משלוחים פעילים כ-CSV"
+              filename="active-shipments"
+              headers={['מספר משלוח', 'מאת', 'אל', 'סטטוס', 'מארזים', 'ימים פתוח']}
+              rows={data.shipments.map((s) => [
+                s.reference_id, s.source_name, s.target_name,
+                STATUS_LABELS[s.status] || s.status,
+                s.package_count, s.days_since_creation,
+              ])}
+            />
+          )}
 
           {data.shipments.length === 0 ? (
             <div className="card text-center text-gray-500">אין משלוחים פעילים כרגע 🎉</div>
@@ -351,6 +406,24 @@ function BranchTab() {
 
       {error && <div className="card border-red-200 bg-red-50 text-red-700">{error}</div>}
       {loading && <div className="card text-center text-gray-500">טוען...</div>}
+
+      {data && !loading && (data.outgoing.shipments.length > 0 || data.incoming.shipments.length > 0) && (
+        <ExportCsvButton
+          label={`הורדת דוח פעילות סניף "${data.branch.name}" כ-CSV`}
+          filename={`branch-activity-${data.branch.code}-${from}-to-${to}`}
+          headers={['כיוון', 'מספר משלוח', 'סניף', 'סטטוס', 'מארזים שנשלחו', 'מארזים שהתקבלו', 'תאריך']}
+          rows={[
+            ...data.outgoing.shipments.map((s) => [
+              'יוצא', s.reference_id, s.target_name,
+              STATUS_LABELS[s.status] || s.status, s.package_count, s.received_count, s.created_at,
+            ]),
+            ...data.incoming.shipments.map((s) => [
+              'נכנס', s.reference_id, s.source_name,
+              STATUS_LABELS[s.status] || s.status, s.package_count, s.received_count, s.created_at,
+            ]),
+          ]}
+        />
+      )}
 
       {data && !loading && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

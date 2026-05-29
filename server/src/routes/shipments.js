@@ -94,6 +94,67 @@ router.get('/:id', requireAuth, (req, res) => {
 });
 
 /**
+ * POST /api/shipments/:id/mark-sent
+ * סימון המשלוח כ"נשלח". מי מבצע את הפעולה משפיע על הרישום בהיסטוריה.
+ * אדמין/מחסן → "המדבקה הודפסה ונשלחה"
+ * סניף יוצר → "סומן כנשלח על ידי הסניף"
+ *
+ * Body: { action: 'print' | 'mark_sent' }
+ */
+router.post('/:id/mark-sent', requireAuth, requireRole('admin', 'warehouse', 'branch'), (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { action } = req.body || {};
+    const isPrint = action === 'print';
+
+    // בדיקה: branch יכול לסמן כנשלח רק משלוחים שיצר
+    if (req.user.role === 'branch') {
+      const shipment = shipments.getShipmentById(id);
+      if (!shipment) {
+        return res.status(404).json({ error: 'המשלוח לא נמצא' });
+      }
+      if (shipment.created_by !== req.user.id) {
+        return res.status(403).json({ error: 'ניתן לסמן כנשלח רק משלוחים שיצרת' });
+      }
+    }
+
+    const result = shipments.markAsSent(id, req.user.id, isPrint ? 'print' : 'mark_sent');
+    res.json(result);
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/shipments/:id/mark-not-received
+ * סניף היעד מסמן שהמשלוח לא הגיע (אחרי 7 ימים מ-sent).
+ *
+ * Body: { notes? }
+ */
+router.post('/:id/mark-not-received', requireAuth, requireRole('admin', 'branch'), (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { notes } = req.body || {};
+
+    // בדיקה: סניף רק לסניף שלו
+    if (req.user.role === 'branch') {
+      const shipment = shipments.getShipmentById(id);
+      if (!shipment) {
+        return res.status(404).json({ error: 'המשלוח לא נמצא' });
+      }
+      if (shipment.target_branch_id !== req.user.branch_id) {
+        return res.status(403).json({ error: 'ניתן לסמן רק משלוחים שמיועדים לסניף שלך' });
+      }
+    }
+
+    const updated = shipments.markNotReceived(id, req.user.id, notes);
+    res.json({ shipment: updated });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ error: error.message });
+  }
+});
+
+/**
  * POST /api/shipments/:id/cancel
  * ביטול משלוח.
  * הרשאות מובנות בשירות (admin/branch של היוצר בסטטוס pending).

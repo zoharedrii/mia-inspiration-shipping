@@ -13,6 +13,9 @@ import {
   getShipmentHistory,
   updateShipmentStatus,
   confirmShipmentReceipt,
+  markShipmentAsSent,
+  markShipmentNotReceived,
+  canPrintLabel,
   PACKAGE_TYPES,
   STATUS_LABELS,
 } from '../api/shipments.js';
@@ -105,11 +108,25 @@ export default function ShipmentDetailPage() {
   // === בדיקת הרשאות לפעולות ===
   const isAdmin = user.role === 'admin';
   const isWarehouse = user.role === 'warehouse';
+  const isCreator = user.role === 'branch' && shipment.created_by === user.id;
   const isTargetBranch = user.role === 'branch' && user.branch_id === shipment.target_branch_id;
 
-  const canMarkAsSent = (isAdmin || isWarehouse) && shipment.status === 'pending';
+  // אדמין/מחסן: יראו "🖨️ הדפסה" (מדפיס + מסמן כנשלח בלחיצה ראשונה)
+  const canPrint = (isAdmin || isWarehouse) && canPrintLabel(shipment);
+  // סניף שיצר משלוח: יראה "📤 סמן כנשלח" (אותה פעולה, בלי לפתוח מדבקה)
+  const canMarkSentByBranch = isCreator && shipment.status === 'pending';
+
   const canConfirmReceipt = (isAdmin || isTargetBranch) && shipment.status === 'sent';
   const canCancel = isAdmin && ['pending', 'sent'].includes(shipment.status);
+
+  // האם ניתן לסמן "לא התקבל"? רק לסניף היעד/admin, רק אחרי 7 ימים מ-sent
+  const sentDate = shipment.updated_at && shipment.status === 'sent'
+    ? new Date(shipment.updated_at.replace(' ', 'T') + 'Z')
+    : null;
+  const daysSinceSent = sentDate
+    ? Math.floor((Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
+  const canMarkNotReceived = (isAdmin || isTargetBranch) && shipment.status === 'sent' && daysSinceSent >= 7;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
@@ -234,16 +251,36 @@ export default function ShipmentDetailPage() {
         )}
       </div>
 
-      {/* פעולות אפשריות */}
-      {canMarkAsSent && (
+      {/* === אדמין/מחסן: הדפסת מדבקה (גם מסמן כנשלח בלחיצה הראשונה) === */}
+      {canPrint && (
         <ActionSection
-          title="פעולה — סימון כנשלח"
-          description="לחיצה תסמן את המשלוח כיצא לדרך. הסניף המקבל יראה אותו ברשימה ויוכל לאשר קבלה."
+          title="🖨️ הדפסת מדבקה"
+          description={
+            shipment.status === 'pending'
+              ? 'לחיצה תפתח את המדבקה להדפסה ותסמן אוטומטית את המשלוח כ"נשלח". כך הסניף המקבל יראה שהמשלוח בדרך.'
+              : 'המשלוח כבר נשלח. ניתן עדיין לפתוח את המדבקה אם צריך עותק נוסף.'
+          }
+        >
+          <Link
+            to={`/shipments/${shipment.id}/label`}
+            className="btn-primary"
+          >
+            🖨️ פתיחת מדבקה
+          </Link>
+        </ActionSection>
+      )}
+
+      {/* === סניף שיצר משלוח: סימון כנשלח (בלי מדבקה) === */}
+      {canMarkSentByBranch && (
+        <ActionSection
+          title="📤 סימון כנשלח"
+          description="לחיצה תסמן את המשלוח כיצא מהסניף. הסניף המקבל יקבל התראה על המשלוח הצפוי."
         >
           <ActionButton
-            label="סמן כנשלח"
+            label="📤 סמן כנשלח"
+            confirmMessage="לסמן את המשלוח כנשלח? לא ניתן יהיה לחזור אחורה."
             onAction={async () => {
-              await updateShipmentStatus(shipment.id, 'sent', null);
+              await markShipmentAsSent(shipment.id, 'mark_sent');
               loadShipment();
             }}
             variant="primary"
@@ -256,6 +293,24 @@ export default function ShipmentDetailPage() {
           shipment={shipment}
           onSuccess={loadShipment}
         />
+      )}
+
+      {/* === סניף יעד: סימון "לא התקבל" אחרי 7 ימים === */}
+      {canMarkNotReceived && (
+        <ActionSection
+          title="❌ המשלוח לא הגיע"
+          description={`עברו ${daysSinceSent} ימים מאז השליחה. אם המשלוח לא הגיע — סמני "לא התקבל" כדי שהמנהל ייצור קשר עם אוריין.`}
+        >
+          <ActionButton
+            label="❌ המשלוח לא התקבל"
+            confirmMessage="לסמן שהמשלוח לא התקבל? פעולה זו תועד במערכת."
+            onAction={async () => {
+              await markShipmentNotReceived(shipment.id, null);
+              loadShipment();
+            }}
+            variant="danger"
+          />
+        </ActionSection>
       )}
 
       {canCancel && (

@@ -38,6 +38,70 @@ const MIGRATIONS = [
   },
 ];
 
+/**
+ * Migration מיוחדת: עדכון CHECK constraint של status ב-shipments.
+ * ב-SQLite אין ALTER לCHECK - צריך לעשות table-swap.
+ */
+function migrateShipmentStatusCheck(db) {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='shipments'").get();
+  if (!row || row.sql.includes("'not_received'")) {
+    return; // כבר במצב החדש, או שאין טבלה כלל
+  }
+
+  console.log('📦 [DB] migrating shipments status CHECK constraint...');
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.exec(`
+      BEGIN TRANSACTION;
+
+      CREATE TABLE shipments_new (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        reference_id        TEXT    UNIQUE NOT NULL,
+        source_branch_id    INTEGER NOT NULL,
+        target_branch_id    INTEGER NOT NULL,
+        package_count       INTEGER NOT NULL CHECK(package_count > 0),
+        package_type        TEXT    NOT NULL DEFAULT '02',
+        status              TEXT    NOT NULL DEFAULT 'pending'
+                              CHECK(status IN ('pending','sent','received','mismatch','cancelled','not_received')),
+        orian_order_id      TEXT,
+        notes               TEXT,
+        created_by          INTEGER NOT NULL,
+        received_count      INTEGER,
+        received_by         INTEGER,
+        received_at         TEXT,
+        created_at          TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at          TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (source_branch_id) REFERENCES branches(id),
+        FOREIGN KEY (target_branch_id) REFERENCES branches(id),
+        FOREIGN KEY (created_by)       REFERENCES users(id),
+        FOREIGN KEY (received_by)      REFERENCES users(id)
+      );
+
+      INSERT INTO shipments_new (
+        id, reference_id, source_branch_id, target_branch_id,
+        package_count, package_type, status, orian_order_id, notes,
+        created_by, received_count, received_by, received_at, created_at, updated_at
+      )
+      SELECT
+        id, reference_id, source_branch_id, target_branch_id,
+        package_count, package_type, status, orian_order_id, notes,
+        created_by, received_count, received_by, received_at, created_at, updated_at
+      FROM shipments;
+
+      DROP TABLE shipments;
+      ALTER TABLE shipments_new RENAME TO shipments;
+
+      COMMIT;
+    `);
+    console.log('📦 [DB] CHECK constraint עודכן בהצלחה');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    console.error('📦 [DB] migration נכשלה:', err.message);
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+}
+
 // ====================================================================
 // branches - סניפי הרשת + מחסן מרכזי
 // ====================================================================
@@ -79,7 +143,7 @@ const SHIPMENTS_TABLE = `
     package_count       INTEGER NOT NULL CHECK(package_count > 0),
     package_type        TEXT    NOT NULL DEFAULT '02',
     status              TEXT    NOT NULL DEFAULT 'pending'
-                          CHECK(status IN ('pending','sent','received','mismatch','cancelled')),
+                          CHECK(status IN ('pending','sent','received','mismatch','cancelled','not_received')),
     orian_order_id      TEXT,
     notes               TEXT,
     created_by          INTEGER NOT NULL,
@@ -152,6 +216,9 @@ export function initSchema(db) {
       }
     }
   }
+
+  // migration מיוחדת לעדכון CHECK של status (table-swap)
+  migrateShipmentStatusCheck(db);
 
   console.log('📦 [DB] סכמה אותחלה (4 טבלאות + אינדקסים)');
 }

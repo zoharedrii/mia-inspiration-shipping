@@ -32,6 +32,17 @@ export function getMonthlyReport(year, month) {
     )
     .all(monthPrefix);
 
+  // חישוב זמן ממוצע להפצה (created_at → received_at) במשלוחים שהתקבלו
+  const receivedShips = shipments.filter((s) => s.received_at && (s.status === 'received' || s.status === 'mismatch'));
+  const totalDays = receivedShips.reduce((sum, s) => {
+    const created = new Date(s.created_at.replace(' ', 'T') + 'Z');
+    const received = new Date(s.received_at.replace(' ', 'T') + 'Z');
+    return sum + (received - created) / (1000 * 60 * 60 * 24);
+  }, 0);
+  const avgDeliveryDays = receivedShips.length > 0
+    ? Number((totalDays / receivedShips.length).toFixed(1))
+    : null;
+
   const summary = {
     total: shipments.length,
     pending: shipments.filter((s) => s.status === 'pending').length,
@@ -39,10 +50,12 @@ export function getMonthlyReport(year, month) {
     received: shipments.filter((s) => s.status === 'received').length,
     mismatch: shipments.filter((s) => s.status === 'mismatch').length,
     cancelled: shipments.filter((s) => s.status === 'cancelled').length,
+    not_received: shipments.filter((s) => s.status === 'not_received').length,
     total_packages: shipments.reduce((sum, s) => sum + s.package_count, 0),
     received_packages: shipments
       .filter((s) => s.received_count != null)
       .reduce((sum, s) => sum + s.received_count, 0),
+    avg_delivery_days: avgDeliveryDays,
   };
 
   return { period: monthPrefix, summary, shipments };

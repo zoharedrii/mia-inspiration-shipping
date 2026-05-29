@@ -2,8 +2,10 @@
 //
 // מציג ברוכים הבאים, פרטי המשתמש, ופעולות ראשיות.
 
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { listShipments } from '../api/shipments.js';
 
 const ROLE_LABELS = {
   admin: 'מנהל מערכת',
@@ -25,6 +27,19 @@ const ACTIONS_BY_ROLE = {
 export default function HomePage() {
   const { user } = useAuth();
   const allowedActions = ACTIONS_BY_ROLE[user.role] || [];
+  const [incomingShipments, setIncomingShipments] = useState([]);
+
+  // משתמש סניף: לטעון משלוחים שמיועדים אליו בסטטוס sent (התראה)
+  useEffect(() => {
+    if (user.role === 'branch' && user.branch_id) {
+      listShipments({ status: 'sent' })
+        .then((all) => {
+          const incoming = all.filter((s) => s.target_branch_id === user.branch_id);
+          setIncomingShipments(incoming);
+        })
+        .catch(() => {});
+    }
+  }, [user.role, user.branch_id]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
@@ -37,6 +52,27 @@ export default function HomePage() {
           {user.branch_name ? ` · ${user.branch_name}` : ''}
         </p>
       </header>
+
+      {/* התראה לסניף על משלוחים בדרך */}
+      {incomingShipments.length > 0 && (
+        <Link
+          to="/shipments?status=sent"
+          className="card border-blue-300 bg-blue-50 hover:bg-blue-100 transition-colors block"
+        >
+          <div className="flex items-start gap-3">
+            <span className="text-3xl">🚚</span>
+            <div className="flex-1">
+              <div className="font-bold text-blue-900">
+                {incomingShipments.length} {incomingShipments.length === 1 ? 'משלוח בדרך' : 'משלוחים בדרך'} לסניף שלך
+              </div>
+              <div className="text-sm text-blue-700 mt-1">
+                הגעה צפויה תוך 24-48 שעות. לחצי לצפייה בפרטים ולאישור קבלה כשהמשלוחים יגיעו.
+              </div>
+            </div>
+            <span className="text-blue-600 text-xl">←</span>
+          </div>
+        </Link>
+      )}
 
       {/* פעולות ראשיות */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

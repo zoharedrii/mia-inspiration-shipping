@@ -6,7 +6,7 @@
 import db from '../db/index.js';
 import { createTransportationOrder } from './orian/transportation.js';
 
-const VALID_STATUSES = ['pending', 'sent', 'received', 'mismatch', 'cancelled'];
+const VALID_STATUSES = ['pending', 'sent', 'received', 'mismatch', 'cancelled', 'not_received'];
 const VALID_PACKAGE_TYPES = ['01', '02', '03', '05']; // לפי מסמכי אוריין
 
 /**
@@ -320,6 +320,88 @@ export function cancelShipment(id, user, reason = null) {
       `INSERT INTO shipment_status_history (shipment_id, old_status, new_status, changed_by, notes)
        VALUES (?, ?, 'cancelled', ?, ?)`
     ).run(id, shipment.status, user.id, finalReason);
+  });
+
+  transaction();
+  return getShipmentById(id);
+}
+
+/**
+ * סימון משלוח כ"נשלח" (מ-pending → sent).
+ * משמש כשהמדבקה מודפסת (אדמין/מחסן) או כשסניף יוצר ולוחץ "סמן כנשלח".
+ *
+ * רק פעם אחת! אם הסטטוס כבר sent/received/etc - לא משנים שום דבר.
+ *
+ * @param {number} id - מזהה המשלוח
+ * @param {number} userId - המשתמש המבצע
+ * @param {string} action - 'print' | 'mark_sent' (לרישום בהיסטוריה)
+ * @returns {object} { shipment, alreadySent }
+ */
+export function markAsSent(id, userId, action = 'mark_sent') {
+  const shipment = db.prepare('SELECT * FROM shipments WHERE id = ?').get(id);
+  if (!shipment) {
+    throw Object.assign(new Error('המשלוח לא נמצא'), { statusCode: 404 });
+  }
+
+  // אם כבר נשלח/בוטל/הסתיים - לא משנים שום דבר. זה מותר (לא שגיאה)
+  if (shipment.status !== 'pending') {
+    return { shipment: getShipmentById(id), alreadySent: true };
+  }
+
+  const note = action === 'print'
+    ? 'המדבקה הודפסה ונשלחה'
+    : 'סומן כנשלח על ידי הסניף';
+
+  const transaction = db.transaction(() => {
+    db.prepare(
+      `UPDATE shipments SET status = 'sent', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+    ).run(id);
+
+    db.prepare(
+      `INSERT INTO shipment_status_history (shipment_id, old_status, new_status, changed_by, notes)
+       VALUES (?, 'pending', 'sent', ?, ?)`
+    ).run(id, userId, note);
+  });
+
+  transaction();
+  return { shipment: getShipmentById(id), alreadySent: false };
+}
+
+/**
+ * סימון משלוח כ"לא התקבל" - על ידי סניף היעד אחרי 7+ ימים מ-sent.
+ */
+export function markNotReceived(id, userId, notes = null) {
+  const shipment = db.prepare('SELECT * FROM shipments WHERE id = ?').get(id);
+  if (!shipment) {
+    throw Object.assign(new Error('המשלוח לא נמצא'), { statusCode: 404 });
+  }
+  if (shipment.status !== 'sent') {
+    throw Object.assign(new Error('ניתן לסמן "לא התקבל" רק למשלוחים בסטטוס "נשלח"'), { statusCode: 400 });
+  }
+
+  // בדיקה שעברו לפחות 7 ימים מאז שעודכן ל-sent
+  const updatedAt = new Date(shipment.updated_at.replace(' ', 'T') + 'Z');
+  const daysSince = (Date.now() - updatedAt.getTime()) / (1000 * 60 * 60 * 24);
+  if (daysSince < 7) {
+    throw Object.assign(
+      new Error(`ניתן לסמן "לא התקבל" רק אחרי 7 ימים מהשליחה (כרגע עברו ${Math.floor(daysSince)} ימים)`),
+      { statusCode: 400 }
+    );
+  }
+
+  const note = notes?.trim() || 'הסניף סימן שהמשלוח לא התקבל';
+
+  const transaction = db.transaction(() => {
+    db.prepare(
+      `UPDATE shipments
+       SET status = 'not_received', updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).run(id);
+
+    db.prepare(
+      `INSERT INTO shipment_status_history (shipment_id, old_status, new_status, changed_by, notes)
+       VALUES (?, 'sent', 'not_received', ?, ?)`
+    ).run(id, userId, note);
   });
 
   transaction();

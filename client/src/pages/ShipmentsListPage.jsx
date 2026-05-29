@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 // useState משמש גם ברכיב ShipmentCard למטה
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { listShipments, cancelShipment, canCancelShipment, STATUS_LABELS, PACKAGE_TYPES } from '../api/shipments.js';
+import { listShipments, cancelShipment, canCancelShipment, canPrintLabel, STATUS_LABELS, PACKAGE_TYPES } from '../api/shipments.js';
 import StatusBadge from '../components/StatusBadge.jsx';
 
 // אפשרויות סינון - 'all' מציג הכל
@@ -323,16 +323,18 @@ function ShipmentCard({ shipment, user, onChanged, selected, onToggleSelect }) {
         selected ? 'border-blue-400 bg-blue-50/40' : 'hover:border-blue-200'
       }`}
     >
-      {/* Checkbox לבחירה */}
-      <div className="absolute top-3 left-3" onClick={handleCheckboxClick}>
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={() => {}}
-          className="w-4 h-4 cursor-pointer"
-          title="בחירה להדפסת מדבקה"
-        />
-      </div>
+      {/* Checkbox לבחירה - מוסתר אם לא ניתן להדפיס (cancelled/not_received) */}
+      {canPrintLabel(shipment) && (
+        <div className="absolute top-3 left-3" onClick={handleCheckboxClick}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => {}}
+            className="w-4 h-4 cursor-pointer"
+            title="בחירה להדפסת מדבקה"
+          />
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2 flex-1 min-w-0">
           {/* שורה ראשונה: מספר משלוח + סטטוס */}

@@ -65,6 +65,33 @@ export async function cancelShipment(id, reason) {
 }
 
 /**
+ * סימון משלוח כנשלח (פעם אחת - רק אם status === 'pending').
+ * @param {number} id
+ * @param {'print' | 'mark_sent'} action - איך לרשום בהיסטוריה
+ */
+export async function markShipmentAsSent(id, action = 'mark_sent') {
+  const { data } = await apiClient.post(`/shipments/${id}/mark-sent`, { action });
+  return data; // { shipment, alreadySent }
+}
+
+/**
+ * סניף מסמן שהמשלוח לא התקבל (אחרי 7+ ימים מ-sent).
+ */
+export async function markShipmentNotReceived(id, notes) {
+  const { data } = await apiClient.post(`/shipments/${id}/mark-not-received`, { notes });
+  return data.shipment;
+}
+
+/**
+ * האם ניתן להדפיס מדבקה למשלוח?
+ * (לא ניתן לבוטלים)
+ */
+export function canPrintLabel(shipment) {
+  if (!shipment) return false;
+  return !['cancelled', 'not_received'].includes(shipment.status);
+}
+
+/**
  * האם המשתמש יכול לבטל את המשלוח (לפי הלוגיקה של ה-Backend).
  * שימושי להחלטה אם להציג כפתור ביטול ב-UI.
  */
@@ -89,6 +116,7 @@ export const STATUS_LABELS = {
   received: 'התקבל',
   mismatch: 'אי-התאמה',
   cancelled: 'בוטל',
+  not_received: 'לא התקבל',
 };
 
 // מחלקות Tailwind לכל סטטוס (צבע רקע)
@@ -97,7 +125,8 @@ export const STATUS_CLASSES = {
   sent: 'bg-status-sent text-white',
   received: 'bg-status-received text-white',
   mismatch: 'bg-status-mismatch text-white',
-  cancelled: 'bg-gray-400 text-white',
+  cancelled: 'bg-status-error text-white',     // אדום (במקום אפור)
+  not_received: 'bg-red-700 text-white',       // אדום כהה
 };
 
 // סוגי מארזים לפי מסמכי אוריין

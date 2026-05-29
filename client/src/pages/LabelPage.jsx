@@ -5,20 +5,49 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getShipment } from '../api/shipments.js';
+import { useAuth } from '../context/AuthContext.jsx';
+import { getShipment, markShipmentAsSent, canPrintLabel } from '../api/shipments.js';
 import ShippingLabel from '../components/ShippingLabel.jsx';
 
 export default function LabelPage() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [shipment, setShipment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [autoSentNotice, setAutoSentNotice] = useState(false);
 
   useEffect(() => {
-    getShipment(id)
-      .then(setShipment)
-      .catch((err) => setError(err.response?.data?.error || 'לא ניתן לטעון את המשלוח'))
-      .finally(() => setLoading(false));
+    async function load() {
+      try {
+        let data = await getShipment(id);
+
+        // אם המשלוח לא בר-הדפסה (cancelled / not_received) - שגיאה
+        if (!canPrintLabel(data)) {
+          setError('לא ניתן להדפיס מדבקה למשלוח בסטטוס "' +
+            (data.status === 'cancelled' ? 'בוטל' : 'לא התקבל') + '"');
+          return;
+        }
+
+        // אם המשלוח עדיין pending ויש למשתמש הרשאה לסמן כנשלח -
+        // מסמנים אוטומטית עם פעולת "הדפסה" (פעם אחת בלבד)
+        if (data.status === 'pending' && (user.role === 'admin' || user.role === 'warehouse')) {
+          const result = await markShipmentAsSent(id, 'print');
+          data = result.shipment;
+          if (!result.alreadySent) {
+            setAutoSentNotice(true);
+          }
+        }
+
+        setShipment(data);
+      } catch (err) {
+        setError(err.response?.data?.error || 'לא ניתן לטעון את המשלוח');
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   if (loading) {
@@ -48,6 +77,15 @@ export default function LabelPage() {
           🖨️ הדפסה
         </button>
       </div>
+
+      {/* הודעה כשהמשלוח סומן אוטומטית כנשלח */}
+      {autoSentNotice && (
+        <div className="max-w-2xl mx-auto px-4 mb-4 print:hidden">
+          <div className="card bg-emerald-50 border-emerald-300 text-emerald-800 text-sm">
+            ✓ המשלוח סומן אוטומטית כ"נשלח" וההיסטוריה תועדה. הסניף המקבל יראה אותו עכשיו ברשימה.
+          </div>
+        </div>
+      )}
 
       {/* כל המדבקות זו אחר זו (לפי כמות המארזים) */}
       <div className="px-4 print:p-0 space-y-8 print:space-y-0">

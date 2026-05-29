@@ -9,6 +9,18 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { listBranches } from '../api/branches.js';
 import { createShipment, PACKAGE_TYPES } from '../api/shipments.js';
+import SearchableSelect from '../components/SearchableSelect.jsx';
+
+// תיאורים מפורטים לכל סוג חבילה (לפי מסמך אוריין)
+const PACKAGE_TYPE_DESCRIPTIONS = {
+  '01': 'מעטפה — מסמכים, פריטים קטנים ושטוחים',
+  '02': 'חבילה — קרטון רגיל עד 30 ק"ג',
+  '03': 'חבילה כבדה — קרטון מעל 30 ק"ג',
+  '05': 'משטח — משטח עץ עם סחורה (Pallet)',
+};
+
+// כמות מארזים שמעליה תוצג אזהרת "כמות חריגה"
+const HIGH_QUANTITY_THRESHOLD = 10;
 
 export default function CreateShipmentPage() {
   const { user } = useAuth();
@@ -164,26 +176,22 @@ export default function CreateShipmentPage() {
         {/* סניף שולח */}
         {canChooseSource ? (
           <div>
-            <label htmlFor="source" className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               סניף שולח <span className="text-red-500">*</span>
             </label>
-            <select
-              id="source"
+            <SearchableSelect
+              options={branches.map((b) => ({
+                value: b.id,
+                label: b.name,
+                secondary: b.branch_number ? `סניף ${b.branch_number}` : 'מחסן מרכזי',
+              }))}
               value={sourceBranchId}
-              onChange={(e) => setSourceBranchId(e.target.value)}
-              required
+              onChange={setSourceBranchId}
+              placeholder="בחרי או הקלידי לחיפוש..."
               disabled={submitting}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                         disabled:bg-gray-100"
-            >
-              <option value="">-- בחרי סניף שולח --</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
+              required
+              emptyMessage="לא נמצא סניף בשם הזה"
+            />
           </div>
         ) : (
           <div>
@@ -196,26 +204,22 @@ export default function CreateShipmentPage() {
 
         {/* סניף יעד */}
         <div>
-          <label htmlFor="target" className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             סניף יעד <span className="text-red-500">*</span>
           </label>
-          <select
-            id="target"
+          <SearchableSelect
+            options={targetBranchOptions.map((b) => ({
+              value: b.id,
+              label: b.name,
+              secondary: b.branch_number ? `סניף ${b.branch_number}` : 'מחסן מרכזי',
+            }))}
             value={targetBranchId}
-            onChange={(e) => setTargetBranchId(e.target.value)}
-            required
+            onChange={setTargetBranchId}
+            placeholder="בחרי או הקלידי לחיפוש..."
             disabled={submitting}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                       disabled:bg-gray-100"
-          >
-            <option value="">-- בחרי סניף יעד --</option>
-            {targetBranchOptions.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name} ({b.city})
-              </option>
-            ))}
-          </select>
+            required
+            emptyMessage="לא נמצא סניף בשם הזה"
+          />
         </div>
 
         {/* כמות מארזים + סוג */}
@@ -238,6 +242,16 @@ export default function CreateShipmentPage() {
                          disabled:bg-gray-100"
               placeholder="לדוגמה: 5"
             />
+            {/* W1: אזהרה לכמות חריגה (10+) */}
+            {parseInt(packageCount, 10) > HIGH_QUANTITY_THRESHOLD && (
+              <div className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 flex items-start gap-1">
+                <span>⚠️</span>
+                <span>
+                  כמות חריגה: {packageCount} מארזים. שימי לב שהמשלוח גדול מהרגיל —
+                  ודאי שהכמות נכונה לפני שליחה.
+                </span>
+              </div>
+            )}
           </div>
 
           <div>
@@ -260,6 +274,12 @@ export default function CreateShipmentPage() {
                 </option>
               ))}
             </select>
+            {/* A1: תיאור מפורט של סוג המארז שנבחר */}
+            {PACKAGE_TYPE_DESCRIPTIONS[packageType] && (
+              <p className="mt-1.5 text-xs text-gray-500 leading-relaxed">
+                {PACKAGE_TYPE_DESCRIPTIONS[packageType]}
+              </p>
+            )}
           </div>
         </div>
 
