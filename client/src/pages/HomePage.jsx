@@ -156,15 +156,6 @@ export default function HomePage() {
           </Link>
         )}
       </div>
-
-      {/* מידע על הפרויקט */}
-      <div className="card bg-blue-50/50 border-blue-100">
-        <h2 className="text-lg font-bold mb-2">המערכת בפיתוח 🚧</h2>
-        <p className="text-sm text-gray-700">
-          השלב הנוכחי: יצירת משלוחים פנים-ארגוניים. בקרוב נוסיף רשימת משלוחים,
-          אישורי קבלה, ואינטגרציה אוטומטית עם API של אוריין.
-        </p>
-      </div>
     </div>
   );
 }
