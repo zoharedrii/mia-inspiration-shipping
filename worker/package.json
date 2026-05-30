@@ -1,0 +1,21 @@
+{
+  "name": "mia-shipping-worker",
+  "version": "1.0.0",
+  "description": "Backend על Cloudflare Workers + Hono + D1 - מערכת ניהול משלוחים מייה",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply mia-shipping --local",
+    "db:migrate:remote": "wrangler d1 migrations apply mia-shipping --remote",
+    "db:seed:local": "wrangler d1 execute mia-shipping --local --file=./seed/seed.sql",
+    "db:seed:remote": "wrangler d1 execute mia-shipping --remote --file=./seed/seed.sql"
+  },
+  "dependencies": {
+    "hono": "^4.6.14",
+    "fast-xml-parser": "^5.7.3"
+  },
+  "devDependencies": {
+    "wrangler": "^3.99.0"
+  }
+}

@@ -1,0 +1,24 @@
+# הגדרות Cloudflare Worker - מערכת משלוחים מייה
+# שם ה-Worker שיופיע ב-Cloudflare. ה-URL יהיה בערך: mia-shipping-api.<account>.workers.dev
+name = "mia-shipping-api"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# חיבור למסד הנתונים D1.
+# binding = השם שדרכו ניגשים ל-DB בקוד (c.env.DB)
+# database_id - יוחלף בערך האמיתי אחרי `wrangler d1 create mia-shipping`.
+# במצב local (wrangler dev / --local) הערך הזה לא בשימוש - נוצר DB מקומי אוטומטית.
+[[d1_databases]]
+binding = "DB"
+database_name = "mia-shipping"
+database_id = "REPLACE_AFTER_D1_CREATE"
+migrations_dir = "migrations"
+
+# משתני סביבה לא-סודיים (סודות מוגדרים דרך `wrangler secret put`)
+[vars]
+ORIAN_MODE = "mock"
+ORIAN_BASE_URL = "https://disapiTest.orian.com"
+# JWT_SECRET לפיתוח מקומי בלבד! בפרודקשן מגדירים סוד אמיתי דרך:
+#   wrangler secret put JWT_SECRET
+# (סוד הפרודקשן דורס את הערך הזה, והוא לא מגיע ל-Git)
+JWT_SECRET = "dev-local-only-change-in-production"

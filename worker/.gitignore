@@ -1,0 +1,8 @@
+# קבצי build וזמניים של Wrangler (נוצרים אוטומטית, לא נכנסים ל-Git)
+.wrangler/
+
+# מסד הנתונים המקומי של D1 (נוצר על ידי wrangler dev --local)
+.dev.vars
+
+# תלויות
+node_modules/
