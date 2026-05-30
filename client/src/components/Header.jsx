@@ -64,8 +64,8 @@ export default function Header() {
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
       <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sm:gap-4">
-        {/* ===== ימין: המבורגר + חזרה (במובייל) ===== */}
-        <div className="flex items-center gap-1 sm:hidden">
+        {/* ===== ימין: המבורגר (תמיד) + חזרה (מובייל בלבד) ===== */}
+        <div className="flex items-center gap-1">
           {/* כפתור המבורגר */}
           <div ref={menuRef} className="relative">
             <button
@@ -112,7 +112,7 @@ export default function Header() {
           {!isHomePage && (
             <button
               onClick={() => navigate(-1)}
-              className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
+              className="sm:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100"
               aria-label="חזרה אחורה"
               title="חזרה אחורה"
             >
