@@ -11,14 +11,13 @@ compatibility_date = "2024-11-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "mia-shipping"
-database_id = "REPLACE_AFTER_D1_CREATE"
+database_id = "0f38caa6-b087-42a5-b4b7-41e0431d431f"
 migrations_dir = "migrations"
 
 # משתני סביבה לא-סודיים (סודות מוגדרים דרך `wrangler secret put`)
 [vars]
 ORIAN_MODE = "mock"
 ORIAN_BASE_URL = "https://disapiTest.orian.com"
-# JWT_SECRET לפיתוח מקומי בלבד! בפרודקשן מגדירים סוד אמיתי דרך:
-#   wrangler secret put JWT_SECRET
-# (סוד הפרודקשן דורס את הערך הזה, והוא לא מגיע ל-Git)
-JWT_SECRET = "dev-local-only-change-in-production"
+# הערה: JWT_SECRET הוא סוד ולא מוגדר כאן.
+#   - בפרודקשן: הוגדר דרך `wrangler secret put JWT_SECRET`
+#   - בפיתוח מקומי: יושב בקובץ .dev.vars (שלא נכנס ל-Git)
