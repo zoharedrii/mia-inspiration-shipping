@@ -6,9 +6,10 @@
 import axios from 'axios';
 import { TOKEN_KEY } from '../context/AuthContext.jsx';
 
-// /api מנותב דרך Vite proxy ל-http://localhost:3001 בזמן פיתוח
+// בפיתוח מקומי: /api מנותב דרך Vite proxy ל-localhost:3001
+// בפרודקשן (Cloudflare Pages): VITE_API_BASE_URL מצביע על ה-Worker החי
 const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 30_000,
   headers: {
     'Content-Type': 'application/json',
