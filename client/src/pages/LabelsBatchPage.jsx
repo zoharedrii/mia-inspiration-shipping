@@ -6,17 +6,20 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { getShipment } from '../api/shipments.js';
+import { useAuth } from '../context/AuthContext.jsx';
+import { getShipment, markShipmentAsSent } from '../api/shipments.js';
 import ShippingLabel from '../components/ShippingLabel.jsx';
 
 export default function LabelsBatchPage() {
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const idsParam = searchParams.get('ids') || '';
   const ids = idsParam.split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean);
 
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState([]);
+  const [autoSentCount, setAutoSentCount] = useState(0);
 
   useEffect(() => {
     if (ids.length === 0) {
@@ -24,22 +27,47 @@ export default function LabelsBatchPage() {
       return;
     }
 
-    // טעינה במקביל של כל המשלוחים
-    Promise.allSettled(ids.map((id) => getShipment(id)))
-      .then((results) => {
-        const loaded = [];
-        const failed = [];
-        results.forEach((r, i) => {
-          if (r.status === 'fulfilled' && r.value) {
-            loaded.push(r.value);
-          } else {
-            failed.push(ids[i]);
-          }
-        });
-        setShipments(loaded);
-        setErrors(failed);
-      })
-      .finally(() => setLoading(false));
+    async function load() {
+      // טעינה במקביל של כל המשלוחים
+      const results = await Promise.allSettled(ids.map((id) => getShipment(id)));
+      const loaded = [];
+      const failed = [];
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled' && r.value) {
+          loaded.push(r.value);
+        } else {
+          failed.push(ids[i]);
+        }
+      });
+
+      // סימון אוטומטי כ"נשלח" למשלוחים שעדיין ממתינים - כמו בהדפסה בודדת.
+      // רק admin/warehouse יכולים לסמן. כל משלוח מסומן פעם אחת בלבד.
+      const canMark = user.role === 'admin' || user.role === 'warehouse';
+      let autoSent = 0;
+      let finalShipments = loaded;
+
+      if (canMark) {
+        finalShipments = await Promise.all(
+          loaded.map(async (s) => {
+            if (s.status !== 'pending') return s;
+            try {
+              const result = await markShipmentAsSent(s.id, 'print');
+              if (!result.alreadySent) autoSent++;
+              return result.shipment;
+            } catch {
+              return s; // אם הסימון נכשל - ממשיכים עם המדבקה כרגיל
+            }
+          })
+        );
+      }
+
+      setShipments(finalShipments);
+      setErrors(failed);
+      setAutoSentCount(autoSent);
+      setLoading(false);
+    }
+
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsParam]);
 
@@ -82,6 +110,15 @@ export default function LabelsBatchPage() {
           🖨️ הדפסת כל המדבקות
         </button>
       </div>
+
+      {/* הודעה כשמשלוחים סומנו אוטומטית כנשלחו */}
+      {autoSentCount > 0 && (
+        <div className="max-w-2xl mx-auto px-4 mb-4 print:hidden">
+          <div className="card bg-emerald-50 border-emerald-300 text-emerald-800 text-sm">
+            ✓ {autoSentCount} משלוחים סומנו אוטומטית כ"נשלח" וההיסטוריה תועדה. הסניפים המקבלים יראו אותם עכשיו ברשימה.
+          </div>
+        </div>
+      )}
 
       {errors.length > 0 && (
         <div className="max-w-2xl mx-auto px-4 mb-4 print:hidden">
