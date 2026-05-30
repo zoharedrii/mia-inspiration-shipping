@@ -6,6 +6,13 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// __dirname לא קיים ב-ESM — מחשבים אותו ידנית
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// נתיב לתיקיית ה-React המבנה (client/dist) — בפרודקשן קיים אחרי npm run build
+const clientDist = path.join(__dirname, '../../client/dist');
 
 import './db/index.js'; // מאתחל את ה-DB ויוצר טבלאות
 import { seedIfEmpty } from './db/seed.js';
@@ -60,6 +67,15 @@ app.use('/api/reports', reportsRouter);
 
 // /api/orian - תקשורת עם API של חברת אוריין
 app.use('/api/orian', orianRouter);
+
+// === הגשת Frontend (פרודקשן בלבד) ===
+// מגיש את ה-React app הבנוי. חייב לבוא אחרי כל ה-API routes.
+app.use(express.static(clientDist));
+// כל בקשה שאינה /api/* מועברת ל-index.html כדי ש-React Router יטפל בה
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next(); // API 404 ← notFoundHandler
+  res.sendFile(path.join(clientDist, 'index.html'));
+});
 
 // === טיפול בשגיאות ===
 
