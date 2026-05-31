@@ -16,7 +16,8 @@ migrations_dir = "migrations"
 
 # משתני סביבה לא-סודיים (סודות מוגדרים דרך `wrangler secret put`)
 [vars]
-ORIAN_MODE = "live"
+ORIAN_MODE = "mock"
+# לשנות ל-"live" כשמגיעים פרטי פרודקשן אמיתיים מרועי/רונית
 # כתובת ה-API של אוריין:
 #   סביבת טסט (כרגע): https://disapiTest.orian.com
 #   סביבת ייצור (בעתיד): לשנות לכתובת אוריין הרשמית אחרי קבלת פרטי פרודקשן מרונית/רועי
