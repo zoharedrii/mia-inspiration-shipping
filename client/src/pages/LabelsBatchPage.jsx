@@ -1,14 +1,11 @@
-// מסך מדבקות מרובות - מציג ומדפיס כמה מדבקות יחד
+// מסך מדבקות מרובות - מושך PDF מאוריין ומדפיס כמה מדבקות יחד
 //
 // URL: /shipments/labels?ids=1,2,3
-// מטעין במקביל את כל המשלוחים, מציג מדבקה לכל אחד.
-// בהדפסה - כל מדבקה בעמוד נפרד (page-break).
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { getShipment, markShipmentAsSent } from '../api/shipments.js';
-import ShippingLabel from '../components/ShippingLabel.jsx';
+import { getShipment, getShipmentLabel, markShipmentAsSent } from '../api/shipments.js';
 
 export default function LabelsBatchPage() {
   const [searchParams] = useSearchParams();
@@ -16,54 +13,53 @@ export default function LabelsBatchPage() {
   const idsParam = searchParams.get('ids') || '';
   const ids = idsParam.split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean);
 
-  const [shipments, setShipments] = useState([]);
+  const [labels, setLabels] = useState([]);      // [{ id, reference_id, labelPdf, error }]
   const [loading, setLoading] = useState(true);
-  const [errors, setErrors] = useState([]);
   const [autoSentCount, setAutoSentCount] = useState(0);
 
   useEffect(() => {
-    if (ids.length === 0) {
-      setLoading(false);
-      return;
-    }
+    if (ids.length === 0) { setLoading(false); return; }
 
     async function load() {
-      // טעינה במקביל של כל המשלוחים
-      const results = await Promise.allSettled(ids.map((id) => getShipment(id)));
-      const loaded = [];
-      const failed = [];
-      results.forEach((r, i) => {
-        if (r.status === 'fulfilled' && r.value) {
-          loaded.push(r.value);
-        } else {
-          failed.push(ids[i]);
-        }
-      });
+      // טעינת כל המשלוחים במקביל
+      const shipmentResults = await Promise.allSettled(ids.map((id) => getShipment(id)));
 
-      // סימון אוטומטי כ"נשלח" למשלוחים שעדיין ממתינים - כמו בהדפסה בודדת.
-      // רק admin/warehouse יכולים לסמן. כל משלוח מסומן פעם אחת בלבד.
+      // סינון מוצלחים
+      let loadedShipments = shipmentResults
+        .map((r, i) => r.status === 'fulfilled' ? r.value : null)
+        .filter(Boolean);
+
+      // סימון אוטומטי כ"נשלח" לממתינים
       const canMark = user.role === 'admin' || user.role === 'warehouse';
       let autoSent = 0;
-      let finalShipments = loaded;
-
       if (canMark) {
-        finalShipments = await Promise.all(
-          loaded.map(async (s) => {
+        loadedShipments = await Promise.all(
+          loadedShipments.map(async (s) => {
             if (s.status !== 'pending') return s;
             try {
               const result = await markShipmentAsSent(s.id, 'print');
               if (!result.alreadySent) autoSent++;
               return result.shipment;
-            } catch {
-              return s; // אם הסימון נכשל - ממשיכים עם המדבקה כרגיל
-            }
+            } catch { return s; }
           })
         );
       }
-
-      setShipments(finalShipments);
-      setErrors(failed);
       setAutoSentCount(autoSent);
+
+      // משיכת כל המדבקות מאוריין במקביל
+      const labelResults = await Promise.allSettled(
+        loadedShipments.map((s) => getShipmentLabel(s.id))
+      );
+
+      const labelsData = loadedShipments.map((s, i) => {
+        const r = labelResults[i];
+        if (r.status === 'fulfilled') {
+          return { id: s.id, reference_id: s.reference_id, labelPdf: r.value.label_pdf };
+        }
+        return { id: s.id, reference_id: s.reference_id, error: r.reason?.response?.data?.error || 'שגיאה' };
+      });
+
+      setLabels(labelsData);
       setLoading(false);
     }
 
@@ -71,11 +67,11 @@ export default function LabelsBatchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsParam]);
 
-  // חישוב סך כל המדבקות (סכום מארזים מכל המשלוחים)
-  const totalLabels = shipments.reduce((sum, s) => sum + (s.package_count || 1), 0);
+  const successCount = labels.filter((l) => l.labelPdf).length;
+  const failCount = labels.filter((l) => l.error).length;
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto px-4 py-8 text-center text-gray-500">טוען מדבקות...</div>;
+    return <div className="max-w-2xl mx-auto px-4 py-8 text-center text-gray-500">טוען מדבקות מאוריין...</div>;
   }
 
   if (ids.length === 0) {
@@ -91,76 +87,60 @@ export default function LabelsBatchPage() {
 
   return (
     <div className="bg-gray-100 min-h-screen py-8 print:bg-white print:py-0">
-      {/* פס פעולה - מוסתר בהדפסה */}
-      <div className="max-w-2xl mx-auto px-4 mb-4 flex gap-2 items-center print:hidden">
-        <Link to="/shipments" className="btn-secondary">
-          ← חזרה לרשימה
-        </Link>
+
+      {/* פס פעולה */}
+      <div className="max-w-4xl mx-auto px-4 mb-4 flex gap-2 items-center print:hidden">
+        <Link to="/shipments" className="btn-secondary">← חזרה לרשימה</Link>
         <div className="text-sm text-gray-600 mx-3">
-          {shipments.length} משלוחים · {totalLabels} מדבקות
-          {errors.length > 0 && (
-            <span className="text-red-600 mr-2">(נכשלו {errors.length})</span>
-          )}
+          {successCount} מדבקות
+          {failCount > 0 && <span className="text-red-600 mr-2">(נכשלו {failCount})</span>}
         </div>
         <button
           onClick={() => window.print()}
-          disabled={shipments.length === 0}
+          disabled={successCount === 0}
           className="btn-primary mr-auto disabled:opacity-50"
         >
           🖨️ הדפסת כל המדבקות
         </button>
       </div>
 
-      {/* הודעה כשמשלוחים סומנו אוטומטית כנשלחו */}
       {autoSentCount > 0 && (
-        <div className="max-w-2xl mx-auto px-4 mb-4 print:hidden">
+        <div className="max-w-4xl mx-auto px-4 mb-4 print:hidden">
           <div className="card bg-emerald-50 border-emerald-300 text-emerald-800 text-sm">
-            ✓ {autoSentCount} משלוחים סומנו אוטומטית כ"נשלח" וההיסטוריה תועדה. הסניפים המקבלים יראו אותם עכשיו ברשימה.
+            ✓ {autoSentCount} משלוחים סומנו אוטומטית כ"נשלח"
           </div>
         </div>
       )}
 
-      {errors.length > 0 && (
-        <div className="max-w-2xl mx-auto px-4 mb-4 print:hidden">
-          <div className="card border-red-200 bg-red-50 text-red-700 text-sm">
-            לא נטענו {errors.length} משלוחים (ID: {errors.join(', ')}). אולי אין הרשאה או שהם נמחקו.
-          </div>
-        </div>
-      )}
-
-      {/* כל המדבקות זו אחר זו - לולאה כפולה: עבור כל משלוח, מדבקה לכל מארז */}
-      <div className="px-4 print:p-0 space-y-8 print:space-y-0">
-        {shipments.flatMap((s, shipmentIdx) => {
-          const isLastShipment = shipmentIdx === shipments.length - 1;
-          return Array.from({ length: s.package_count }, (_, packageIdx) => {
-            const isLastPackage = packageIdx === s.package_count - 1;
-            const isVeryLast = isLastShipment && isLastPackage;
+      {/* מדבקות — iframe לכל משלוח */}
+      <div className="max-w-4xl mx-auto px-4 print:p-0 space-y-6 print:space-y-0">
+        {labels.map((label, i) => {
+          const isLast = i === labels.length - 1;
+          if (label.error) {
             return (
-              <div
-                key={`${s.id}-${packageIdx}`}
-                className={!isVeryLast ? 'print:break-after-page' : ''}
-              >
-                <ShippingLabel
-                  shipment={s}
-                  packageIndex={packageIdx + 1}
-                  totalPackages={s.package_count}
-                />
+              <div key={label.id} className="card border-red-200 bg-red-50 text-red-700 print:hidden">
+                משלוח {label.reference_id}: {label.error}
               </div>
             );
-          });
+          }
+          return (
+            <div key={label.id} className={!isLast ? 'print:break-after-page' : ''}>
+              <iframe
+                src={label.labelPdf}
+                title={`מדבקה ${label.reference_id}`}
+                className="w-full border rounded bg-white"
+                style={{ height: '70vh', minHeight: '400px' }}
+              />
+            </div>
+          );
         })}
-
-        <div className="text-center text-xs text-gray-500 mt-4 print:hidden">
-          {totalLabels} מדבקות מוכנות להדפסה
-          <br />
-          במצב live: כל מדבקה תימשך מאוריין באמצעות מזהה ההזמנה.
-        </div>
       </div>
 
       <style>{`
         @media print {
-          @page { size: A6 landscape; margin: 5mm; }
+          @page { margin: 0; }
           body { background: white !important; }
+          iframe { border: none !important; height: 100vh !important; }
         }
       `}</style>
     </div>
