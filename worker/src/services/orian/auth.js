@@ -38,10 +38,20 @@ export async function login(env) {
   }
 
   // אוריין מחזירה JSON בצורה: { AuthToken: "..." }
+  // בסביבת הטסט עם פרטי Test/Ts123456 מגיע "Authorized" בלי טוקן —
+  // במקרה זה נשתמש ב-Basic Auth כ"טוקן" לקריאות API (עובד בסביבת הטסט)
   const data = await response.json();
-  const token = data?.AuthToken;
+  let token = data?.AuthToken;
+
   if (!token) {
-    throw new Error(`התחברות לאוריין הצליחה אך לא התקבל AuthToken. תגובה: ${JSON.stringify(data)}`);
+    if (data === 'Authorized') {
+      // סביבת טסט: מאשרת חיבור אך לא מחזירה AuthToken.
+      // שומרים את ה-Basic Auth credentials כטוקן חלופי.
+      token = `Basic ${credentials}`;
+      console.log('ℹ️  [Orian] סביבת טסט - משתמשים ב-Basic Auth כ-AuthToken');
+    } else {
+      throw new Error(`התחברות לאוריין הצליחה אך לא התקבל AuthToken. תגובה: ${JSON.stringify(data)}`);
+    }
   }
 
   cachedToken = token;

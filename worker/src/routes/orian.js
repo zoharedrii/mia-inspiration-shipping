@@ -11,12 +11,16 @@ const router = new Hono();
 router.get('/test', async (c) => {
   try {
     const token = await orian.login(c.env);
+    const isTestMode = token.startsWith('Basic ');
     return c.json({
       status: 'ok',
-      message: '✅ התחברות לאוריין הצליחה',
+      message: isTestMode
+        ? '✅ חיבור לאוריין הצליח (סביבת טסט — ללא AuthToken אמיתי)'
+        : '✅ התחברות לאוריין הצליחה',
       tokenReceived: Boolean(token),
-      tokenLength: token?.length ?? 0,
+      isTestCredentials: isTestMode,
       environment: c.env.ORIAN_BASE_URL,
+      note: isTestMode ? 'פרטי פרודקשן יחליפו זאת לטוקן אמיתי' : undefined,
     });
   } catch (error) {
     return c.json(
