@@ -7,6 +7,30 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { getShipment, getShipmentLabel, markShipmentAsSent } from '../api/shipments.js';
 
+// רכיב iframe עם spinner מובנה
+function PdfIframe({ src, title, style }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className="relative" style={style}>
+      {!loaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/90 rounded z-10 border">
+          <div className="text-center text-gray-500">
+            <div className="text-2xl mb-1 animate-bounce">📄</div>
+            <div className="text-sm">טוען מדבקה...</div>
+          </div>
+        </div>
+      )}
+      <iframe
+        src={src}
+        title={title}
+        className="w-full border rounded bg-white"
+        style={{ height: '100%', minHeight: style?.minHeight }}
+        onLoad={() => setLoaded(true)}
+      />
+    </div>
+  );
+}
+
 export default function LabelsBatchPage() {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
@@ -125,10 +149,9 @@ export default function LabelsBatchPage() {
           }
           return (
             <div key={label.id} className={!isLast ? 'print:break-after-page' : ''}>
-              <iframe
+              <PdfIframe
                 src={label.labelPdf}
                 title={`מדבקה ${label.reference_id}`}
-                className="w-full border rounded bg-white"
                 style={{ height: '70vh', minHeight: '400px' }}
               />
             </div>
