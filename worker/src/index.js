@@ -19,8 +19,23 @@ import orian from './routes/orian.js';
 
 const app = new Hono();
 
-// CORS - מאפשר ל-Frontend (דומיין אחר ב-Pages) לדבר עם ה-API
-app.use('*', cors());
+// CORS - מאפשר ל-Frontend לדבר עם ה-API
+// מורשים: Cloudflare Pages שלנו (כולל preview deployments) + localhost לפיתוח
+app.use('*', cors({
+  origin: (origin) => {
+    if (!origin) return origin;
+    // Pages production + כל preview deployments (*.pages.dev)
+    if (origin.endsWith('.pages.dev') || origin === 'https://mia-shipping-frontend.pages.dev') {
+      return origin;
+    }
+    // פיתוח מקומי
+    if (origin.startsWith('http://localhost:')) return origin;
+    return null;
+  },
+  allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
 
 // === נתיבים ===
 app.route('/api/health', health);
