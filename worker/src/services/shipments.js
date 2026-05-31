@@ -109,11 +109,18 @@ export async function createShipment(db, env, data, createdByUserId) {
     const targetBranch = await db.prepare('SELECT * FROM branches WHERE id = ?').bind(target_branch_id).first();
     const newShipment = await getShipmentById(db, newId);
 
+    console.log(`🚀 [Shipments] קורא לאוריין עבור משלוח ${newShipment.reference_id}`);
+    console.log(`🚀 [Shipments] מקור: ${sourceBranch?.name} (id=${source_branch_id}) | יעד: ${targetBranch?.name} (id=${target_branch_id})`);
+    console.log(`🚀 [Shipments] ORIAN_MODE=${env.ORIAN_MODE} | ORIAN_BASE_URL=${env.ORIAN_BASE_URL}`);
+    console.log(`🚀 [Shipments] CONSIGNEE מוגדר: ${Boolean(env.ORIAN_CONSIGNEE)} | USERNAME מוגדר: ${Boolean(env.ORIAN_USERNAME)}`);
+
     const orianResult = await createTransportationOrder(env, {
       shipment: newShipment,
       sourceBranch,
       targetBranch,
     });
+
+    console.log(`✅ [Shipments] אוריין הצליח: orian_order_id=${orianResult?.orian_order_id}`);
 
     if (orianResult?.orian_order_id) {
       await db
@@ -130,13 +137,15 @@ export async function createShipment(db, env, data, createdByUserId) {
         .run();
     }
   } catch (orianError) {
-    console.error('⚠️  [Shipments] קריאה לאוריין נכשלה:', orianError.message);
+    console.error('❌ [Shipments] קריאה לאוריין נכשלה:', orianError.message);
+    // שומרים את השגיאה המלאה בהיסטוריה כדי שאפשר לאבחן מה קרה
+    const errorNote = `כשל בקריאה לאוריין: ${orianError.message}`;
     await db
       .prepare(
         `INSERT INTO shipment_status_history (shipment_id, old_status, new_status, changed_by, notes)
          VALUES (?, 'pending', 'pending', ?, ?)`
       )
-      .bind(newId, createdByUserId, `כשל בקריאה לאוריין: ${orianError.message}`)
+      .bind(newId, createdByUserId, errorNote)
       .run();
   }
 

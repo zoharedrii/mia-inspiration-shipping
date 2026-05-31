@@ -151,21 +151,28 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
 
   const xml = buildXml(payload);
 
+  const authHeaders = buildAuthHeaders(token);
+  console.log(`📤 [Orian] CreateTransportationOrder → ${env.ORIAN_BASE_URL}/CreateTransportationOrder`);
+  console.log(`📤 [Orian] Auth header type: ${Object.keys(authHeaders)[0]} | shipment: ${shipment.reference_id}`);
+  console.log(`📤 [Orian] XML payload (ראשית 500 תווים): ${xml.slice(0, 500)}`);
+
   const response = await fetch(`${env.ORIAN_BASE_URL}/CreateTransportationOrder`, {
     method: 'POST',
     headers: {
-      ...buildAuthHeaders(token),
+      ...authHeaders,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: `xmldata=${encodeURIComponent(xml)}`,
   });
 
+  const responseText = await response.text();
+  console.log(`📥 [Orian] CreateTransportationOrder HTTP ${response.status}: ${responseText.slice(0, 500)}`);
+
   if (!response.ok) {
-    throw new Error(`יצירת הזמנה באוריין נכשלה (HTTP ${response.status})`);
+    throw new Error(`יצירת הזמנה באוריין נכשלה (HTTP ${response.status}): ${responseText.slice(0, 300)}`);
   }
 
-  // ניתוח תגובת ה-XML מאוריין
-  const responseText = await response.text();
+  // ניתוח תגובת ה-XML מאוריין (responseText כבר נקרא למעלה)
   let success = false;
   let errorMsg = '';
   try {
@@ -226,20 +233,25 @@ export async function getTransportationOrderLabel(env, referenceId) {
   const xml = buildXml(payload);
 
   // שגיאת כתיב "Transporrtaion" — כך בדיוק מוגדר ב-API של אוריין
+  const labelAuthHeaders = buildAuthHeaders(token);
+  console.log(`📤 [Orian] GetTransporttaionOrderLabel → referenceId: ${referenceId}`);
+  console.log(`📤 [Orian] Auth header type: ${Object.keys(labelAuthHeaders)[0]}`);
+
   const response = await fetch(`${env.ORIAN_BASE_URL}/GetTransporttaionOrderLabel`, {
     method: 'POST',
     headers: {
-      ...buildAuthHeaders(token),
+      ...labelAuthHeaders,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: `xmldata=${encodeURIComponent(xml)}`,
   });
 
-  if (!response.ok) {
-    throw new Error(`משיכת מדבקה מאוריין נכשלה (HTTP ${response.status})`);
-  }
-
   const responseText = await response.text();
+  console.log(`📥 [Orian] GetLabel HTTP ${response.status}: ${responseText.slice(0, 300)}`);
+
+  if (!response.ok) {
+    throw new Error(`משיכת מדבקה מאוריין נכשלה (HTTP ${response.status}): ${responseText.slice(0, 200)}`);
+  }
 
   // ניתוח XML — המדבקה נמצאת ב-<LABEL><![CDATA[...base64...]]></LABEL>
   let labelBase64 = null;
