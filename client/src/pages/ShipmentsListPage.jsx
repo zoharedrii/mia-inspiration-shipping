@@ -12,11 +12,13 @@ import StatusBadge from '../components/StatusBadge.jsx';
 
 // אפשרויות סינון - 'all' מציג הכל
 const FILTERS = [
-  { value: 'all',       label: 'הכל' },
-  { value: 'pending',   label: 'ממתין' },
-  { value: 'sent',      label: 'נשלח' },
-  { value: 'received',  label: 'התקבל' },
-  { value: 'mismatch',  label: 'אי-התאמה' },
+  { value: 'all',          label: 'הכל' },
+  { value: 'pending',      label: 'ממתין' },
+  { value: 'sent',         label: 'נשלח' },
+  { value: 'received',     label: 'התקבל' },
+  { value: 'mismatch',     label: 'אי-התאמה' },
+  { value: 'cancelled',    label: 'בוטל' },
+  { value: 'not_received', label: 'לא התקבל' },
 ];
 
 // מיפוי קוד סוג מארז → שם בעברית
