@@ -45,10 +45,10 @@ export async function login(env) {
 
   if (!token) {
     if (data === 'Authorized') {
-      // סביבת טסט: מאשרת חיבור אך לא מחזירה AuthToken.
-      // שומרים את ה-Basic Auth credentials כטוקן חלופי.
-      token = `Basic ${credentials}`;
-      console.log('ℹ️  [Orian] סביבת טסט - משתמשים ב-Basic Auth כ-AuthToken');
+      // סביבת טסט: ה-Login מחזיר את המחרוזת "Authorized" במקום JWT אמיתי.
+      // הטוקן שנשלח ב-AuthToken header לשאר הקריאות הוא "Authorized" עצמו.
+      token = 'Authorized';
+      console.log('ℹ️  [Orian] סביבת טסט - AuthToken="Authorized" (לפי תגובת Login)');
     } else {
       throw new Error(`התחברות לאוריין הצליחה אך לא התקבל AuthToken. תגובה: ${JSON.stringify(data)}`);
     }

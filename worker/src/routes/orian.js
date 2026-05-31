@@ -11,11 +11,12 @@ const router = new Hono();
 router.get('/test', async (c) => {
   try {
     const token = await orian.login(c.env);
-    const isTestMode = token.startsWith('Basic ');
+    // בסביבת טסט הטוקן הוא "Authorized" (לא JWT של פרודקשן)
+    const isTestMode = token === 'Authorized' || token.startsWith('Basic ');
     return c.json({
       status: 'ok',
       message: isTestMode
-        ? '✅ חיבור לאוריין הצליח (סביבת טסט — ללא AuthToken אמיתי)'
+        ? '✅ חיבור לאוריין הצליח (סביבת טסט — AuthToken="Authorized")'
         : '✅ התחברות לאוריין הצליחה',
       tokenReceived: Boolean(token),
       isTestCredentials: isTestMode,
