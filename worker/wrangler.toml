@@ -16,8 +16,11 @@ migrations_dir = "migrations"
 
 # משתני סביבה לא-סודיים (סודות מוגדרים דרך `wrangler secret put`)
 [vars]
-ORIAN_MODE = "mock"
+ORIAN_MODE = "live"
+# כתובת ה-API של אוריין:
+#   סביבת טסט (כרגע): https://disapiTest.orian.com
+#   סביבת ייצור (בעתיד): לשנות לכתובת אוריין הרשמית אחרי קבלת פרטי פרודקשן מרונית/רועי
 ORIAN_BASE_URL = "https://disapiTest.orian.com"
-# הערה: JWT_SECRET הוא סוד ולא מוגדר כאן.
-#   - בפרודקשן: הוגדר דרך `wrangler secret put JWT_SECRET`
-#   - בפיתוח מקומי: יושב בקובץ .dev.vars (שלא נכנס ל-Git)
+# הערה: JWT_SECRET, ORIAN_USERNAME, ORIAN_PASSWORD, ORIAN_CONSIGNEE הם סודות.
+#   - בפרודקשן: הוגדרו דרך `wrangler secret put <NAME>`
+#   - בפיתוח מקומי: יושבים בקובץ .dev.vars (שלא נכנס ל-Git)
