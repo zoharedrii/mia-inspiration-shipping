@@ -11,6 +11,7 @@ export default function LabelPage() {
   const [shipment, setShipment] = useState(null);
   const [labelPdf, setLabelPdf] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [iframeLoading, setIframeLoading] = useState(true);
   const [error, setError] = useState('');
   const [autoSentNotice, setAutoSentNotice] = useState(false);
 
@@ -89,12 +90,21 @@ export default function LabelPage() {
       </div>
 
       {/* מדבקת אוריין */}
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-4xl mx-auto px-4 relative">
+        {iframeLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded z-10">
+            <div className="text-center text-gray-500">
+              <div className="text-3xl mb-2 animate-bounce">📄</div>
+              <div>טוען מדבקה...</div>
+            </div>
+          </div>
+        )}
         <iframe
           src={labelPdf}
           title="מדבקת שילוח אוריין"
           className="w-full border rounded bg-white"
           style={{ height: '90vh', minHeight: '600px' }}
+          onLoad={() => setIframeLoading(false)}
         />
       </div>
 
