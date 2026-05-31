@@ -6,7 +6,7 @@
 export async function getAllActive(db) {
   const { results } = await db
     .prepare(
-      `SELECT id, code, name, city, address, contact_name, contact_phone, is_warehouse
+      `SELECT id, code, branch_number, name, city, address, contact_name, contact_phone, is_warehouse
        FROM branches
        WHERE is_active = 1
        ORDER BY is_warehouse DESC, name ASC`
