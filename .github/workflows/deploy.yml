@@ -1,0 +1,69 @@
+# deploy.yml - דפלוי אוטומטי בכל push ל-main
+#
+# מה זה עושה:
+#   1. בונה את ה-Frontend (React/Vite)
+#   2. מעלה אותו ל-Cloudflare Pages (mia-shipping-frontend)
+#   3. מעלה את ה-Worker (mia-shipping-api) ל-Cloudflare
+#
+# סודות שצריך להגדיר ב-GitHub (Settings → Secrets → Actions):
+#   CLOUDFLARE_API_TOKEN  - API Token מ-Cloudflare Dashboard
+#   CLOUDFLARE_ACCOUNT_ID - מזהה החשבון (מופיע ב-Cloudflare Dashboard)
+#
+# איך יוצרים API Token:
+#   1. Cloudflare Dashboard → My Profile → API Tokens
+#   2. Create Token → "Edit Cloudflare Workers" template
+#   3. הוסיפי הרשאה נוספת: Cloudflare Pages - Edit
+
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ===== Frontend (React + Vite) =====
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: client
+        env:
+          # URL של ה-Worker החי ב-Cloudflare
+          VITE_API_BASE_URL: https://mia-shipping-api.edrizohar2.workers.dev/api
+
+      - name: Deploy frontend to Cloudflare Pages
+        run: npx wrangler@4 pages deploy dist --project-name mia-shipping-frontend --commit-dirty=true
+        working-directory: client
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # ===== Backend (Cloudflare Worker) =====
+      - name: Install worker dependencies
+        run: npm ci
+        working-directory: worker
+
+      - name: Deploy Worker to Cloudflare
+        run: npx wrangler@3 deploy
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
