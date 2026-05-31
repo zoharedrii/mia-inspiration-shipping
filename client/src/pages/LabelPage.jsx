@@ -1,19 +1,22 @@
-// מסך מדבקה בודדת - מציג ומדפיס מדבקה אחת
+// מסך מדבקת שילוח
 //
-// בלחיצה על "הדפסה" נפתח דיאלוג ההדפסה של הדפדפן.
-// בהדפסה כל ה-UI הניהולי נעלם, נשארת רק המדבקה.
+// בסביבת live: מושך PDF מ-API של אוריין ומציג אותו בדפדפן
+// בסביבת mock: מציג מדבקה מקומית (HTML) עם ברקוד
 
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { getShipment, markShipmentAsSent, canPrintLabel } from '../api/shipments.js';
+import { getShipment, getShipmentLabel, markShipmentAsSent, canPrintLabel } from '../api/shipments.js';
 import ShippingLabel from '../components/ShippingLabel.jsx';
 
 export default function LabelPage() {
   const { id } = useParams();
   const { user } = useAuth();
   const [shipment, setShipment] = useState(null);
+  const [labelPdf, setLabelPdf] = useState(null);   // data URL של PDF מאוריין
+  const [isMockMode, setIsMockMode] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [labelLoading, setLabelLoading] = useState(false);
   const [error, setError] = useState('');
   const [autoSentNotice, setAutoSentNotice] = useState(false);
 
@@ -22,24 +25,33 @@ export default function LabelPage() {
       try {
         let data = await getShipment(id);
 
-        // אם המשלוח לא בר-הדפסה (cancelled / not_received) - שגיאה
         if (!canPrintLabel(data)) {
           setError('לא ניתן להדפיס מדבקה למשלוח בסטטוס "' +
             (data.status === 'cancelled' ? 'בוטל' : 'לא התקבל') + '"');
           return;
         }
 
-        // אם המשלוח עדיין pending ויש למשתמש הרשאה לסמן כנשלח -
-        // מסמנים אוטומטית עם פעולת "הדפסה" (פעם אחת בלבד)
+        // סימון אוטומטי כ"נשלח" בעת הדפסה
         if (data.status === 'pending' && (user.role === 'admin' || user.role === 'warehouse')) {
           const result = await markShipmentAsSent(id, 'print');
           data = result.shipment;
-          if (!result.alreadySent) {
-            setAutoSentNotice(true);
-          }
+          if (!result.alreadySent) setAutoSentNotice(true);
         }
 
         setShipment(data);
+
+        // ניסיון לטעון מדבקה מאוריין
+        setLabelLoading(true);
+        try {
+          const labelData = await getShipmentLabel(id);
+          setLabelPdf(labelData.label_pdf);
+        } catch (labelErr) {
+          // מצב mock או שגיאה — נציג מדבקה מקומית
+          setIsMockMode(true);
+        } finally {
+          setLabelLoading(false);
+        }
+
       } catch (err) {
         setError(err.response?.data?.error || 'לא ניתן לטעון את המשלוח');
       } finally {
@@ -65,49 +77,75 @@ export default function LabelPage() {
 
   return (
     <div className="bg-gray-100 min-h-screen py-8 print:bg-white print:py-0">
-      {/* פס פעולה - מוסתר בהדפסה */}
-      <div className="max-w-2xl mx-auto px-4 mb-4 flex gap-2 items-center print:hidden">
+
+      {/* פס פעולה */}
+      <div className="max-w-4xl mx-auto px-4 mb-4 flex gap-2 items-center print:hidden">
         <Link to={`/shipments/${id}`} className="btn-secondary">
           ← חזרה לפרטי משלוח
         </Link>
         <div className="text-sm text-gray-600 mx-3">
-          {shipment.package_count} מדבקות
+          {shipment.package_count} מארזים
         </div>
+        {/* כפתור הדפסה — מודפסת בהתאם למה שמוצג */}
         <button onClick={() => window.print()} className="btn-primary mr-auto">
           🖨️ הדפסה
         </button>
       </div>
 
-      {/* הודעה כשהמשלוח סומן אוטומטית כנשלח */}
+      {/* הודעה על סימון אוטומטי כנשלח */}
       {autoSentNotice && (
-        <div className="max-w-2xl mx-auto px-4 mb-4 print:hidden">
+        <div className="max-w-4xl mx-auto px-4 mb-4 print:hidden">
           <div className="card bg-emerald-50 border-emerald-300 text-emerald-800 text-sm">
-            ✓ המשלוח סומן אוטומטית כ"נשלח" וההיסטוריה תועדה. הסניף המקבל יראה אותו עכשיו ברשימה.
+            ✓ המשלוח סומן אוטומטית כ"נשלח". הסניף המקבל יראה אותו ברשימה.
           </div>
         </div>
       )}
 
-      {/* כל המדבקות זו אחר זו (לפי כמות המארזים) */}
-      <div className="px-4 print:p-0 space-y-8 print:space-y-0">
-        {Array.from({ length: shipment.package_count }, (_, i) => {
-          const isLast = i === shipment.package_count - 1;
-          return (
-            <div key={i} className={!isLast ? 'print:break-after-page' : ''}>
-              <ShippingLabel
-                shipment={shipment}
-                packageIndex={i + 1}
-                totalPackages={shipment.package_count}
-              />
-            </div>
-          );
-        })}
-
-        <div className="text-center text-xs text-gray-500 mt-4 print:hidden">
-          מערכת מייה אינספיריישן — מדבקה בסגנון אוריין (Mock).
-          <br />
-          במצב live: מדבקה תימשך מאוריין דרך <code>GetTransportationOrderLabel</code>.
+      {labelLoading && (
+        <div className="max-w-4xl mx-auto px-4 mb-4 print:hidden text-gray-500 text-sm text-center">
+          טוען מדבקה מאוריין...
         </div>
-      </div>
+      )}
+
+      {/* === מדבקת אוריין (live) — PDF באיפריים === */}
+      {labelPdf && (
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="mb-3 print:hidden text-sm text-emerald-700 font-medium text-center">
+            ✅ מדבקה רשמית מאוריין
+          </div>
+          <iframe
+            src={labelPdf}
+            title="מדבקת שילוח אוריין"
+            className="w-full border rounded"
+            style={{ height: '90vh', minHeight: '600px' }}
+          />
+        </div>
+      )}
+
+      {/* === מדבקה מקומית (mock fallback) === */}
+      {!labelPdf && !labelLoading && isMockMode && (
+        <>
+          <div className="max-w-4xl mx-auto px-4 mb-3 print:hidden">
+            <div className="card bg-amber-50 border-amber-200 text-amber-800 text-sm text-center">
+              📋 מדבקה מקומית (סביבת בדיקות) — בפרודקשן תוצג מדבקה רשמית מאוריין
+            </div>
+          </div>
+          <div className="px-4 print:p-0 space-y-8 print:space-y-0">
+            {Array.from({ length: shipment.package_count }, (_, i) => {
+              const isLast = i === shipment.package_count - 1;
+              return (
+                <div key={i} className={!isLast ? 'print:break-after-page' : ''}>
+                  <ShippingLabel
+                    shipment={shipment}
+                    packageIndex={i + 1}
+                    totalPackages={shipment.package_count}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <style>{`
         @media print {

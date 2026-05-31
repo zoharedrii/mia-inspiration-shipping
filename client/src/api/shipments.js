@@ -86,6 +86,15 @@ export async function markShipmentNotReceived(id, notes) {
  * האם ניתן להדפיס מדבקה למשלוח?
  * (לא ניתן לבוטלים)
  */
+/**
+ * מושך מדבקת שילוח מאוריין — מחזיר data URL של PDF
+ * עובד רק במצב live. במצב mock מחזיר שגיאה עם error.isMockMode=true
+ */
+export async function getShipmentLabel(id) {
+  const { data } = await apiClient.get(`/shipments/${id}/label`);
+  return data; // { label_pdf, label_base64, reference_id }
+}
+
 export function canPrintLabel(shipment) {
   if (!shipment) return false;
   return !['cancelled', 'not_received'].includes(shipment.status);

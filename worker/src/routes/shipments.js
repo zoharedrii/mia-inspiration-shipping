@@ -3,6 +3,7 @@
 
 import { Hono } from 'hono';
 import * as shipments from '../services/shipments.js';
+import { getTransportationOrderLabel } from '../services/orian/index.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = new Hono();
@@ -219,6 +220,44 @@ router.post('/:id/receive', requireAuth, requireRole('admin', 'branch'), async (
 
     const updated = await shipments.confirmReceipt(c.env.DB, id, received_count, user.id, notes);
     return c.json({ shipment: updated });
+  } catch (error) {
+    return c.json({ error: error.message }, error.statusCode || 500);
+  }
+});
+
+/**
+ * GET /api/shipments/:id/label - מושך מדבקת שילוח PDF מאוריין.
+ * מחזיר את ה-PDF כ-Base64 + data URL מוכן להצגה בדפדפן.
+ * הרשאה: admin, warehouse, branch.
+ * הערה: עובד רק במצב live (ORIAN_MODE=live) ורק אחרי יצירת הזמנה מוצלחת.
+ */
+router.get('/:id/label', requireAuth, requireRole('admin', 'warehouse', 'branch'), async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'), 10);
+    const shipment = await shipments.getShipmentById(c.env.DB, id);
+    if (!shipment) {
+      return c.json({ error: 'המשלוח לא נמצא' }, 404);
+    }
+    if (!shipment.orian_order_id) {
+      return c.json({ error: 'המשלוח עדיין לא קיבל מספר הזמנה מאוריין' }, 400);
+    }
+    if (c.env.ORIAN_MODE !== 'live') {
+      return c.json({
+        error: 'מדבקות זמינות רק במצב live',
+        hint: 'שנה ORIAN_MODE=live ב-wrangler.toml',
+      }, 400);
+    }
+
+    // reference_id שלנו = REFERENCEORDER שנשלח לאוריין
+    const labelBase64 = await getTransportationOrderLabel(c.env, shipment.reference_id);
+
+    return c.json({
+      shipment_id: id,
+      reference_id: shipment.reference_id,
+      // data URL מוכן לשימוש ב-<iframe> או window.open
+      label_pdf: `data:application/pdf;base64,${labelBase64}`,
+      label_base64: labelBase64,
+    });
   } catch (error) {
     return c.json({ error: error.message }, error.statusCode || 500);
   }
