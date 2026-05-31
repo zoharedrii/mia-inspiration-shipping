@@ -2,6 +2,7 @@
 
 import { Hono } from 'hono';
 import * as orian from '../services/orian/index.js';
+import { getSessionCookie } from '../services/orian/auth.js';
 import { buildXml } from '../services/orian/xml.js';
 
 const router = new Hono();
@@ -56,7 +57,11 @@ router.get('/debug', async (c) => {
   }
 
   // שלב 2: בניית XML מינימלי ושליחה ל-CreateTransportationOrder
-  const authHeader = token === 'Authorized' ? { AuthToken: token } : { AuthToken: token };
+  const cookie = getSessionCookie();
+  const authHeader = token.startsWith('Basic ')
+    ? { Authorization: token, ...(cookie ? { Cookie: cookie } : {}) }
+    : { AuthToken: token };
+  steps.push({ step: 'auth_headers', headers: Object.keys(authHeader), hasCookie: Boolean(cookie) });
   const consignee = c.env.ORIAN_CONSIGNEE || '30000060';
   const testXml = buildXml({
     DATACOLLECTION: {
