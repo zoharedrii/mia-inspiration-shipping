@@ -11,6 +11,21 @@ function isMockMode(env) {
   return (env.ORIAN_MODE || 'mock').toLowerCase() === 'mock';
 }
 
+/**
+ * בונה את ה-headers לאימות מול אוריין לפי סוג הטוקן:
+ * - סביבת טסט: הטוקן הוא "Basic ..." → header: Authorization
+ * - סביבת פרודקשן: הטוקן הוא JWT אמיתי → header: AuthToken (כפי שאוריין מצפה)
+ */
+function buildAuthHeaders(token) {
+  if (token.startsWith('Basic ')) {
+    // הטסט-שרת של אוריין מחזיר "Authorized" במקום JWT.
+    // משתמשים ב-Authorization: Basic ... כמו ב-Login רגיל.
+    return { Authorization: token };
+  }
+  // פרודקשן: JWT אמיתי נשלח ב-header AuthToken
+  return { AuthToken: token };
+}
+
 // ===================================================================
 // יצירת מזהי חבילה (PACKAGEID) — מקס' 11 תווים לפי תיעוד אוריין
 // ===================================================================
@@ -139,7 +154,7 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
   const response = await fetch(`${env.ORIAN_BASE_URL}/CreateTransportationOrder`, {
     method: 'POST',
     headers: {
-      AuthToken: token,
+      ...buildAuthHeaders(token),
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: `xmldata=${encodeURIComponent(xml)}`,
@@ -214,7 +229,7 @@ export async function getTransportationOrderLabel(env, referenceId) {
   const response = await fetch(`${env.ORIAN_BASE_URL}/GetTransporttaionOrderLabel`, {
     method: 'POST',
     headers: {
-      AuthToken: token,
+      ...buildAuthHeaders(token),
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: `xmldata=${encodeURIComponent(xml)}`,

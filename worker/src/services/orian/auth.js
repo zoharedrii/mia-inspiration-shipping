@@ -79,9 +79,13 @@ export async function logout(env) {
   if (!cachedToken) return;
 
   try {
+    // שולחים את ה-header המתאים לסוג הטוקן (Basic לטסט, AuthToken לפרודקשן)
+    const authHeader = cachedToken.startsWith('Basic ')
+      ? { Authorization: cachedToken }
+      : { AuthToken: cachedToken };
     await fetch(`${env.ORIAN_BASE_URL}/Logout`, {
       method: 'POST',
-      headers: { AuthToken: cachedToken },
+      headers: authHeader,
     });
     console.log('🚪 [Orian] התנתקנו בהצלחה');
   } catch (error) {
