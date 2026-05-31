@@ -319,7 +319,7 @@ export default function ShipmentDetailPage() {
             label="בטל משלוח"
             confirmMessage="לבטל את המשלוח? פעולה זו לא ניתנת להפיכה."
             onAction={async () => {
-              await updateShipmentStatus(shipment.id, 'cancelled', null, 'בוטל ידנית על ידי מנהל');
+              await updateShipmentStatus(shipment.id, 'cancelled', 'בוטל ידנית על ידי מנהל');
               loadShipment();
             }}
             variant="danger"
