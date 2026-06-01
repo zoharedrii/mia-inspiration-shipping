@@ -152,7 +152,7 @@ export default function ShipmentsListPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full px-3 py-2 pr-9 border border-gray-300 rounded-lg
                          focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="לדוגמה: SHP-20260520 או חלק ממנו"
+              placeholder="לדוגמה: 260601 או חלק ממנו"
             />
             <span className="absolute right-3 top-2.5 text-gray-400">🔍</span>
           </div>
