@@ -466,6 +466,86 @@ function extractLabels(parsed) {
 }
 
 // ===================================================================
+// LIVE — סטטוס חבילה (מעקב משלוח)
+// ===================================================================
+
+/**
+ * שולף את סטטוס המעקב של חבילה אחת או יותר מאוריין.
+ *
+ * זו בקשת GET (בניגוד ליצירה ולמדבקה) עם query params:
+ *   GetPackageStatus?consignee={consignee}&package={pkg},{pkg},...
+ *
+ * ערכי PACKAGESTATUS האפשריים (זרימת משלוח):
+ *   NEW → PICKEDUP → OFFLOADED → LOADED → DELIVERED (סופי)
+ *   ובמקרי קצה: DROPEDATPUDO / LOST / CANCELED
+ *
+ * @param {object} env
+ * @param {string|string[]} packages - PackageID בודד או מערך/רשימה
+ * @returns {Promise<Array<{package:string,status:string,statusDate:string,tracking:string}>>}
+ */
+export async function getPackageStatus(env, packages) {
+  if (isMockMode(env)) {
+    throw new Error('סטטוס חבילה אמיתי זמין רק במצב live — בדקי ORIAN_MODE');
+  }
+
+  const consignee = env.ORIAN_CONSIGNEE;
+  if (!consignee) throw new Error('חסר ORIAN_CONSIGNEE');
+
+  const token = await getToken(env);
+
+  // מחברים את ה-PackageIDs בפסיקים (ה-API תומך בכמה חבילות בבקשה אחת)
+  const packageParam = Array.isArray(packages) ? packages.join(',') : String(packages);
+  const url =
+    `${env.ORIAN_BASE_URL}/GetPackageStatus` +
+    `?consignee=${encodeURIComponent(consignee)}` +
+    `&package=${encodeURIComponent(packageParam)}`;
+
+  console.log(`📤 [Orian] GetPackageStatus → ${url}`);
+
+  const response = await fetch(url, { method: 'GET', headers: buildAuthHeaders(token) });
+  const responseText = await response.text();
+  console.log(`📥 [Orian] GetPackageStatus HTTP ${response.status}: ${responseText.slice(0, 400)}`);
+
+  if (!response.ok) {
+    throw new Error(`שליפת סטטוס חבילה נכשלה (HTTP ${response.status}): ${responseText.slice(0, 200)}`);
+  }
+
+  let parsed = null;
+  try {
+    parsed = parseXml(unwrapOrianString(responseText));
+  } catch {
+    parsed = null;
+  }
+
+  return extractPackageStatuses(parsed);
+}
+
+/**
+ * מחלץ רשימת סטטוסי חבילה מתוך תגובת אוריין שפוענחה.
+ * מבנה: DATACOLLECTION > RESPONSE (בודד או מערך) עם PACKAGE / PACKAGESTATUS.
+ * @returns {Array<{package:string,status:string,statusDate:string,tracking:string}>}
+ */
+function extractPackageStatuses(parsed) {
+  const dc = parsed?.DATACOLLECTION;
+  if (!dc || !dc.RESPONSE) return [];
+
+  const responses = Array.isArray(dc.RESPONSE) ? dc.RESPONSE : [dc.RESPONSE];
+  const cdata = (v) => (v && typeof v === 'object' ? v.__cdata : v);
+  const out = [];
+
+  for (const r of responses) {
+    if (r.PACKAGE === undefined && r.PACKAGESTATUS === undefined) continue;
+    out.push({
+      package: String(cdata(r.PACKAGE) ?? '').trim(),
+      status: String(cdata(r.PACKAGESTATUS) ?? '').trim(),
+      statusDate: String(cdata(r.STATUSDATE) ?? '').trim(),
+      tracking: String(cdata(r.URLTRACKING) ?? '').trim(),
+    });
+  }
+  return out;
+}
+
+// ===================================================================
 // נקודת כניסה ראשית
 // ===================================================================
 

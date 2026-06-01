@@ -4,4 +4,4 @@
 
 export { login, logout, getToken, hasValidToken } from './auth.js';
 export { parseXml, buildXml } from './xml.js';
-export { createTransportationOrder, getTransportationOrderLabel } from './transportation.js';
+export { createTransportationOrder, getTransportationOrderLabel, getPackageStatus } from './transportation.js';

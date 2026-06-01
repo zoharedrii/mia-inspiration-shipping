@@ -31,4 +31,22 @@ router.get('/test', async (c) => {
   }
 });
 
+/**
+ * GET /api/orian/package-status?package=...  — route זמני לבדיקה.
+ * בודק איזה מזהה אוריין מקבלת ב-GetPackageStatus (reference_id / PACKAGEID / TRANSPORTATIONORDERID).
+ * אפשר כמה מזהים מופרדים בפסיק.
+ */
+router.get('/package-status', async (c) => {
+  const pkg = c.req.query('package');
+  if (!pkg) {
+    return c.json({ status: 'error', message: 'חסר פרמטר package' }, 400);
+  }
+  try {
+    const statuses = await orian.getPackageStatus(c.env, pkg.split(','));
+    return c.json({ status: 'ok', query: pkg, statuses });
+  } catch (error) {
+    return c.json({ status: 'error', query: pkg, reason: error.message }, 500);
+  }
+});
+
 export default router;
