@@ -21,6 +21,9 @@ const builder = new XMLBuilder({
   // חשוב: אוריין דורשת תגיות-ריקות סוגרות-עצמן (<TAG/>) ולא <TAG></TAG>.
   // אחרת ה-XML parser בצד אוריין קורס עם "Object reference not set to an instance of an object".
   suppressEmptyNode: true,
+  // עוטף ערכים שמגיעים כ-{ __cdata: 'טקסט' } ב-<![CDATA[...]]>.
+  // נחוץ לשדות בעברית כדי שאוריין תקרא אותם נכון (במקום סימני שאלה).
+  cdataPropName: '__cdata',
 });
 
 /**

@@ -14,13 +14,17 @@ const VALID_STATUSES = ['pending', 'sent', 'received', 'mismatch', 'cancelled', 
 const VALID_PACKAGE_TYPES = ['01', '02', '03', '05']; // לפי מסמכי אוריין
 
 /**
- * מחולל מזהה משלוח ייחודי בפורמט SHP-YYYYMMDD-XXXX
+ * מחולל מזהה משלוח ייחודי בפורמט YYMMDD-XXXXX (12 תווים).
+ * חשוב: אוריין מציגה על המדבקה רק עד 13 תווים — מעבר לזה נחתך.
+ * לכן המזהה קצר: תאריך מקוצר (6) + מקף + 5 תווים אקראיים.
+ * לדוגמה: 260601-K3J9A
  */
 function generateReferenceId() {
   const date = new Date();
-  const yyyymmdd = date.toISOString().slice(0, 10).replace(/-/g, '');
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `SHP-${yyyymmdd}-${random}`;
+  // YYMMDD — שתי ספרות שנה + חודש + יום (למשל "260601")
+  const yymmdd = date.toISOString().slice(2, 10).replace(/-/g, '');
+  const random = Math.random().toString(36).substring(2, 7).toUpperCase();
+  return `${yymmdd}-${random}`;
 }
 
 /**

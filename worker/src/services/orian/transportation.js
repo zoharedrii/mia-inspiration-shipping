@@ -102,6 +102,16 @@ function generatePackageId(shipmentDbId, packageIndex) {
   return `${ts}${idx}`;
 }
 
+/**
+ * עוטף ערך טקסט חופשי (בעיקר עברית) ב-CDATA כדי שאוריין תקרא אותו נכון,
+ * במקום להציג סימני שאלה. ערך ריק חוזר כ-'' כדי ש-suppressEmptyNode
+ * ייצר תגית סוגרת-עצמה (<TAG/>) — כפי שאוריין דורשת.
+ */
+function cdata(value) {
+  const s = value == null ? '' : String(value).trim();
+  return s ? { '__cdata': s } : '';
+}
+
 // ===================================================================
 // MOCK
 // ===================================================================
@@ -208,7 +218,7 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
         LOADTYPE: '',
         SECURITYCLASS: '',
         STORAGELOCATION: '',
-        NOTES: shipment.notes || '',
+        NOTES: cdata(shipment.notes),
         PICKUPCOMMENTS: '',
         DELIVERYCOMMENTS: '',
         CHARGECOMMENTS: '',
@@ -263,14 +273,14 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
           CONTACTTYPE: 'PICKUP',
           CONTACTID: '',
           // STREET1 = כתובת מלאה כולל מספר בית (כפי שמותר לפי התיעוד)
-          STREET1: sourceBranch.address || sourceBranch.name,
+          STREET1: cdata(sourceBranch.address || sourceBranch.name),
           STREET2: '',
           FLOOR: '',
-          CITY: sourceBranch.city || '',
+          CITY: cdata(sourceBranch.city),
           ZIP: sourceBranch.zip || '',
           ORIGINALADDRESS: '',
-          SITENAME: sourceBranch.name,
-          CONTACT1NAME: sourceBranch.contact_name || sourceBranch.name,
+          SITENAME: cdata(sourceBranch.name),
+          CONTACT1NAME: cdata(sourceBranch.contact_name || sourceBranch.name),
           CONTACT1PHONE: sourceBranch.contact_phone || '',
           ADDRESSTYPE: '02',  // Business
           CONTACT2PHONE: '',
@@ -280,14 +290,14 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
         TARGETCONTACT: {
           CONTACTTYPE: 'DELIVERY',
           CONTACTID: '',
-          STREET1: targetBranch.address || targetBranch.name,
+          STREET1: cdata(targetBranch.address || targetBranch.name),
           STREET2: '',
           FLOOR: '',
-          CITY: targetBranch.city || '',
+          CITY: cdata(targetBranch.city),
           ZIP: targetBranch.zip || '',
           ORIGINALADDRESS: '',
-          SITENAME: targetBranch.name,
-          CONTACT1NAME: targetBranch.contact_name || targetBranch.name,
+          SITENAME: cdata(targetBranch.name),
+          CONTACT1NAME: cdata(targetBranch.contact_name || targetBranch.name),
           CONTACT1PHONE: targetBranch.contact_phone || '',
           ADDRESSTYPE: '02',  // Business (סניפים פנים-ארגוניים)
           CONTACT2PHONE: '',
@@ -301,7 +311,9 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
     },
   };
 
-  const xml = buildXml(payload);
+  // חשוב: מצרפים הצהרת XML עם encoding="UTF-8" כדי שאוריין תקרא עברית נכון
+  // (בלי זה שרת ה-.NET קורא את הבייטים בקידוד שגוי → סימני שאלה).
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>' + buildXml(payload);
 
   const createUrl = `${env.ORIAN_BASE_URL}/CreateTransportationOrder`;
   console.log(`📤 [Orian] CreateTransportationOrder → ${createUrl}`);
@@ -313,7 +325,7 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
   //  שליחת "=" כאן גורמת לאוריין לשגיאת XML: "Data at the root level is invalid".)
   const response = await fetch(createUrl, {
     method: 'POST',
-    headers: { ...buildAuthHeaders(token), 'Content-Type': 'application/xml' },
+    headers: { ...buildAuthHeaders(token), 'Content-Type': 'application/xml; charset=utf-8' },
     body: xml,
   });
 
