@@ -20,6 +20,33 @@ function buildAuthHeaders(token) {
 }
 
 /**
+ * שולח בקשת POST לאוריין בפורמט הנדרש.
+ *
+ * חשוב (לפי הנחיית רועי מאוריין): אוריין מצפה שה-XML יישלח כשדה-טופס עם
+ * מפתח ריק — כלומר הגוף חייב להתחיל ב-"=" ואז ה-<DATACOLLECTION>:
+ *     =<DATACOLLECTION>...</DATACOLLECTION>
+ * ו-Content-Type חייב להיות application/x-www-form-urlencoded.
+ * בלי ה-"=" אוריין קוראת Request.Form[""] ומקבלת null → קריסת .NET
+ * ("Value cannot be null. Parameter name: s").
+ *
+ * @param {string} url - כתובת ה-endpoint המלאה
+ * @param {string} token - טוקן האימות
+ * @param {string} xml - גוף ה-XML (ללא הצהרת <?xml?>)
+ * @returns {Promise<Response>}
+ */
+function postToOrian(url, token, xml) {
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      ...buildAuthHeaders(token),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    // ה-"=" לפני ה-XML הופך אותו לשדה-טופס עם מפתח ריק
+    body: `=${xml}`,
+  });
+}
+
+/**
  * מחלץ את אלמנט ה-RESPONSE מתוך תגובת אוריין.
  * אוריין עוטפת לעיתים את ה-XML בתוך <string>...</string> כשהתוכן מקודד (&lt;),
  * ולכן גישה ישירה ל-DATACOLLECTION.RESPONSE נכשלת. הפונקציה מטפלת בשני המקרים.
@@ -266,21 +293,13 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
 
   const xml = buildXml(payload);
 
-  const authHeaders = buildAuthHeaders(token);
-  console.log(`📤 [Orian] CreateTransportationOrder → ${env.ORIAN_BASE_URL}/CreateTransportationOrder`);
-  console.log(`📤 [Orian] Auth header type: ${Object.keys(authHeaders)[0]} | shipment: ${shipment.reference_id}`);
+  const createUrl = `${env.ORIAN_BASE_URL}/CreateTransportationOrder`;
+  console.log(`📤 [Orian] CreateTransportationOrder → ${createUrl}`);
+  console.log(`📤 [Orian] shipment: ${shipment.reference_id}`);
   console.log(`📤 [Orian] XML payload (ראשית 500 תווים): ${xml.slice(0, 500)}`);
 
-  // אוריין מצפה ל-XML גולמי בגוף-הבקשה עם Content-Type "application/xml".
-  // (שליחת xmldata= form-urlencoded נחסמת ע"י ה-firewall של אוריין)
-  const response = await fetch(`${env.ORIAN_BASE_URL}/CreateTransportationOrder`, {
-    method: 'POST',
-    headers: {
-      ...authHeaders,
-      'Content-Type': 'application/xml',
-    },
-    body: xml,
-  });
+  // אוריין מצפה ל-"=" + XML כשדה-טופס (ראה postToOrian).
+  const response = await postToOrian(createUrl, token, xml);
 
   const responseText = await response.text();
   console.log(`📥 [Orian] CreateTransportationOrder HTTP ${response.status}: ${responseText.slice(0, 500)}`);
@@ -351,17 +370,12 @@ export async function getTransportationOrderLabel(env, referenceId) {
 
   const xml = buildXml(payload);
   const url = `${env.ORIAN_BASE_URL}/GetTransporttaionOrderLabel`;
-  const labelAuthHeaders = buildAuthHeaders(token);
 
   console.log(`📤 [Orian] GetTransporttaionOrderLabel → referenceId: ${referenceId}`);
   console.log(`📤 [Orian] XML body:\n${xml}`);
 
-  // אותו סגנון בקשה כמו CreateTransportationOrder: XML גולמי + application/xml.
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { ...labelAuthHeaders, 'Content-Type': 'application/xml' },
-    body: xml,
-  });
+  // אותו סגנון בקשה כמו CreateTransportationOrder: "=" + XML כשדה-טופס.
+  const response = await postToOrian(url, token, xml);
   const responseText = await response.text();
   console.log(`📥 [Orian] GetLabel HTTP ${response.status}: ${responseText.slice(0, 300)}`);
 
