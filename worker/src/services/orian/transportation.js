@@ -55,7 +55,8 @@ function postToOrian(url, token, xml) {
 function extractOrianResponse(responseText) {
   let parsed;
   try {
-    parsed = parseXml(responseText);
+    // קילוף שכבות קידוד JSON (אוריין עלולה לעטוף את ה-XML במחרוזת JSON)
+    parsed = parseXml(unwrapOrianString(responseText));
   } catch {
     return null;
   }
@@ -383,14 +384,24 @@ export async function getTransportationOrderLabel(env, referenceId) {
     throw new Error(`משיכת מדבקה מאוריין נכשלה (HTTP ${response.status}): ${responseText.slice(0, 200)}`);
   }
 
-  // ניתוח XML — המדבקה ב-<LABEL><![CDATA[...base64...]]></LABEL>.
-  // אם להזמנה כמה חבילות, אוריין מחזירה כמה תגיות LABEL (מערך).
-  const resp = extractOrianResponse(responseText);
-  const success = String(resp?.SUCCESS).toLowerCase() === 'true';
-  const labels = extractLabels(resp);
+  // ניתוח התגובה. שים לב: תגובת המדבקה שונה מתגובת היצירה —
+  //   1. אוריין מקודדת אותה *פעמיים* כמחרוזת JSON (צריך לקלף 2 שכבות ").
+  //   2. מבנה ה-XML הוא DATACOLLECTION > DATA > LABEL (ולא RESPONSE כמו ביצירה).
+  // המדבקה ב-<LABEL><![CDATA[...base64 PDF...]]></LABEL>.
+  // אם להזמנה כמה חבילות — אוריין מחזירה כמה בלוקי <DATA> או כמה <LABEL>.
+  const xmlText = unwrapOrianString(responseText);
+  let parsed = null;
+  try {
+    parsed = parseXml(xmlText);
+  } catch {
+    parsed = null;
+  }
+  const labels = extractLabels(parsed);
 
-  if (!success || labels.length === 0) {
-    throw new Error(`לא התקבלה מדבקה מאוריין (הזמנה: ${referenceId})`);
+  if (labels.length === 0) {
+    // ייתכן שאוריין החזירה שגיאה במבנה RESPONSE — ננסה לחלץ הודעה
+    const errMsg = parsed?.DATACOLLECTION?.RESPONSE?.RESPONSEERROR || '';
+    throw new Error(`לא התקבלה מדבקה מאוריין (הזמנה: ${referenceId})${errMsg ? ': ' + errMsg : ''}`);
   }
 
   console.log(`✅ [Orian] התקבלו ${labels.length} מדבקות`);
@@ -398,19 +409,50 @@ export async function getTransportationOrderLabel(env, referenceId) {
 }
 
 /**
- * מחלץ את כל מחרוזות ה-Base64 של המדבקות מתוך תגובת אוריין.
- * תומך גם במדבקה בודדת וגם במספר מדבקות (מספר תגיות <LABEL>).
+ * מקלף שכבות קידוד JSON ממחרוזת תגובת אוריין.
+ * אוריין מחזירה את המדבקה כמחרוזת מקודדת-JSON (לעיתים פעמיים),
+ * למשל: "\"<?xml ...?><DATACOLLECTION>...\"" → <?xml ...?><DATACOLLECTION>...
+ * מקלפים עד שמגיעים ל-XML (מתחיל ב-<) או עד שאי-אפשר לפענח יותר.
+ * @returns {string} מחרוזת ה-XML הנקייה
+ */
+function unwrapOrianString(text) {
+  let s = String(text).trim();
+  let guard = 0;
+  while (s.startsWith('"') && guard < 5) {
+    try {
+      s = JSON.parse(s);
+    } catch {
+      break;
+    }
+    s = String(s).trim();
+    guard++;
+  }
+  return s;
+}
+
+/**
+ * מחלץ את כל מחרוזות ה-Base64 של המדבקות מתוך תגובת אוריין שפוענחה.
+ * מבנה: DATACOLLECTION > DATA > LABEL. תומך במדבקה בודדת ובמספר מדבקות
+ * (כמה בלוקי <DATA> או כמה תגיות <LABEL> בתוך אותו <DATA>).
+ * @param {object|null} parsed - תוצאת parseXml
  * @returns {string[]} מערך של מחרוזות Base64 (יכול להיות ריק)
  */
-function extractLabels(resp) {
-  if (!resp) return [];
-  const raw = resp.LABEL;
-  if (!raw) return [];
-  // fast-xml-parser מחזיר מערך כשיש כמה תגיות LABEL, או ערך בודד כשיש אחת
-  const items = Array.isArray(raw) ? raw : [raw];
-  return items
-    .map((item) => (item && typeof item === 'object' ? item.__cdata : item))
-    .filter((s) => typeof s === 'string' && s.length > 0);
+function extractLabels(parsed) {
+  const dc = parsed?.DATACOLLECTION;
+  if (!dc) return [];
+  // DATA יכול להיות אובייקט בודד או מערך (כמה חבילות)
+  const dataList = dc.DATA ? (Array.isArray(dc.DATA) ? dc.DATA : [dc.DATA]) : [];
+  const labels = [];
+  for (const d of dataList) {
+    const raw = d?.LABEL;
+    if (!raw) continue;
+    const items = Array.isArray(raw) ? raw : [raw];
+    for (const item of items) {
+      const b64 = item && typeof item === 'object' ? item.__cdata : item;
+      if (typeof b64 === 'string' && b64.length > 0) labels.push(b64);
+    }
+  }
+  return labels;
 }
 
 // ===================================================================
