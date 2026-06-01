@@ -18,7 +18,9 @@ const builder = new XMLBuilder({
   attributeNamePrefix: '@_',
   format: true,
   indentBy: '  ',
-  suppressEmptyNode: false,
+  // חשוב: אוריין דורשת תגיות-ריקות סוגרות-עצמן (<TAG/>) ולא <TAG></TAG>.
+  // אחרת ה-XML parser בצד אוריין קורס עם "Object reference not set to an instance of an object".
+  suppressEmptyNode: true,
 });
 
 /**

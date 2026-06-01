@@ -19,6 +19,41 @@ function buildAuthHeaders(token) {
   return { AuthToken: token };
 }
 
+/**
+ * מחלץ את אלמנט ה-RESPONSE מתוך תגובת אוריין.
+ * אוריין עוטפת לעיתים את ה-XML בתוך <string>...</string> כשהתוכן מקודד (&lt;),
+ * ולכן גישה ישירה ל-DATACOLLECTION.RESPONSE נכשלת. הפונקציה מטפלת בשני המקרים.
+ * @returns {object|null} אובייקט ה-RESPONSE, או null אם לא נמצא
+ */
+function extractOrianResponse(responseText) {
+  let parsed;
+  try {
+    parsed = parseXml(responseText);
+  } catch {
+    return null;
+  }
+
+  // מקרה רגיל: <DATACOLLECTION><RESPONSE>...</RESPONSE></DATACOLLECTION>
+  if (parsed?.DATACOLLECTION?.RESPONSE) {
+    return parsed.DATACOLLECTION.RESPONSE;
+  }
+
+  // מקרה עטיפה: <string>...XML מקודד...</string>
+  const wrapped = parsed?.string;
+  if (typeof wrapped === 'string') {
+    try {
+      const inner = parseXml(wrapped);
+      if (inner?.DATACOLLECTION?.RESPONSE) return inner.DATACOLLECTION.RESPONSE;
+    } catch {
+      return null;
+    }
+  } else if (wrapped?.DATACOLLECTION?.RESPONSE) {
+    return wrapped.DATACOLLECTION.RESPONSE;
+  }
+
+  return null;
+}
+
 // ===================================================================
 // יצירת מזהי חבילה (PACKAGEID) — מקס' 11 תווים לפי תיעוד אוריין
 // ===================================================================
@@ -74,6 +109,10 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
     });
   }
 
+  // אוריין דורשת *גוף מלא* — כל שדות הסכמה חייבים להופיע, גם אם ריקים.
+  // אחרת ה-parser של אוריין קורס עם NPE ("Object reference not set...").
+  // הסדר והשדות תואמים לדוגמה הרשמית של אוריין (Create Transportation One Package).
+  // שדות שאין לנו נתון עבורם נשארים '' (ריקים) — fast-xml-parser ייצר <TAG/>.
   const payload = {
     DATACOLLECTION: {
       DATA: {
@@ -81,9 +120,42 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
         CONSIGNEE: consignee,
         TRANSPORTATIONORDERID: '',
         ORDERTYPE: 'REGULAR',
-        // REFERENCEORDER הוא המזהה שלנו — ישמש גם למשיכת מדבקה
+        STATUS: '',
+        PAYINGCUSTOMER: '',
+        SOURCECOMPANY: '',
+        SOURCECOMPANYTYPE: '',
+        SOURCECONTACTID: '',
+        SOURCEPUDUNAME: '',
+        SOURCEPUDUPHONE: '',
+        TARGETCOMPANY: '',
+        TARGETCOMPANYTYPE: '',
+        TARGETCONTACTID: '',
+        TARGETPUDUNAME: '',
+        TARGETPUDUPHONE: '',
+        PICKUPBRANCH: '',
+        DELIVERYBRANCH: '',
+        PICKUPDEPOT: '',
+        DELIVERYDEPOT: '',
+        DRAFTCREATEDATE: '',
+        CREATEDATE: '',
+        REQUESTEDPICKUPDATE: '',
+        REQPICKUPENDDATE: '',
+        REQUESTEDDELIVERYDATE: '',
+        REQDELENDDATE: '',
+        REQUESTEDORIGINALDATE: '',
+        SCHEDULEDDATE: '',
+        STATUSDATE: '',
+        COMPLETIONDATE: '',
+        // HOSTORDERID / REFERENCEORDER = המזהה שלנו — ישמש גם למשיכת מדבקה
         HOSTORDERID: shipment.reference_id,
         REFERENCEORDER: shipment.reference_id,
+        REFERENCEORDER2: '',
+        DELIVERYNOTE: '',
+        INTERNALDELIVERYNOTE: '',
+        CONTAINERNUMBER: '',
+        REFCOMPANYCODE: '',
+        REFCOMPANYNAME: '',
+        REFCOMPANYCONTACT: '',
         PACKAGETYPE: shipment.package_type || '02',
         UNITS: shipment.package_count,
         ORIGINALUNITS: 0,
@@ -92,14 +164,64 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
         ORDERVALUE: 0,
         TRANSPORTATIONTYPE: 'DOMESTIC',
         SERVICETYPE: 'NEXTDAY',
-        PAYMENTTYPE: 'CREDIT',
+        TRANSPORTATIONCLASS: '',
+        HAZARDCLASS: '',
+        HAZARDCOMMENTS: '',
+        CARGOTYPE: '',
+        LOADTYPE: '',
+        SECURITYCLASS: '',
+        STORAGELOCATION: '',
         NOTES: shipment.notes || '',
+        PICKUPCOMMENTS: '',
+        DELIVERYCOMMENTS: '',
+        CHARGECOMMENTS: '',
+        ORDERPRICE: 0,
+        CALCULATEDPRICE: 0,
+        PRICECALCULATIONDATE: '',
+        CHARGEID: '',
+        AGREEMENTCODE: '',
+        CHARGED: 0,
+        CARRIERCREDITED: 0,
+        ORDERCOST: 0,
+        CALCULATEDCOST: 0,
+        COSTCALCULATIONDATE: '',
+        COSTCHARGEID: '',
+        PAYMENTTYPE: 'CREDIT',
+        ORIGINALORDERID: '',
         COLLECTNEEDED: 0,
+        COLLECTSUM: 0,
+        COLLECTCHEQUE1: 0,
+        COLLECTCHEQUE1DATE: '',
+        COLLECTCHEQUE2: 0,
+        COLLECTCHEQUE2DATE: '',
+        COLLECTCHEQUE3: 0,
+        COLLECTCHEQUE3DATE: '',
+        COLLECTRECEIPT: '',
         RETURNPACKAGE: 0,
+        RETURNPACKAGETYPE: '',
         SIGNEDDOC: 0,
         CONFDOC: 0,
         ORDERPRIORITY: 0,
+        DELIVERYCONFIRMATIONTYPE: '',
+        IDPIC: '',
+        ACTIVITYSTATUS: '',
+        SHORTAGE: 0,
         UNKNOWNPACKAGES: 0,
+        ROUTINGSET: '',
+        CHKPNT: '',
+        DELIVERYPOINT: '',
+        MANUALHANDLING: 0,
+        SCHEDULINGSTATUS: '',
+        SCHEDULINGFAILCODE: '',
+        SCHEDULINGFAILNOTES: '',
+        SCHEDULINGSTATUSDATE: '',
+        DELIVERYLOCATION: '',
+        DELIVERYRECIPIENT: '',
+        ADDDATE: '',
+        ADDUSER: '',
+        EDITDATE: '',
+        EDITUSER: '',
+        ALLOWCONVERTTOPUDO: '',
         SOURCECONTACT: {
           CONTACTTYPE: 'PICKUP',
           CONTACTID: '',
@@ -149,13 +271,15 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
   console.log(`📤 [Orian] Auth header type: ${Object.keys(authHeaders)[0]} | shipment: ${shipment.reference_id}`);
   console.log(`📤 [Orian] XML payload (ראשית 500 תווים): ${xml.slice(0, 500)}`);
 
+  // אוריין מצפה ל-XML גולמי בגוף-הבקשה עם Content-Type "application/xml".
+  // (שליחת xmldata= form-urlencoded נחסמת ע"י ה-firewall של אוריין)
   const response = await fetch(`${env.ORIAN_BASE_URL}/CreateTransportationOrder`, {
     method: 'POST',
     headers: {
       ...authHeaders,
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/xml',
     },
-    body: `xmldata=${encodeURIComponent(xml)}`,
+    body: xml,
   });
 
   const responseText = await response.text();
@@ -165,21 +289,23 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
     throw new Error(`יצירת הזמנה באוריין נכשלה (HTTP ${response.status}): ${responseText.slice(0, 300)}`);
   }
 
-  // ניתוח תגובת ה-XML מאוריין (responseText כבר נקרא למעלה)
-  let success = false;
-  let errorMsg = '';
-  try {
-    const parsed = parseXml(responseText);
-    const resp = parsed?.DATACOLLECTION?.RESPONSE;
-    success = String(resp?.SUCCESS).toLowerCase() === 'true';
-    errorMsg = resp?.RESPONSEERROR || '';
-  } catch {
-    // אם הניתוח נכשל נניח הצלחה אם ה-HTTP היה 200
-    success = true;
+  // ניתוח תגובת ה-XML מאוריין (responseText כבר נקרא למעלה).
+  // אוריין מחזירה חיווי במבנה: <RESPONSE><SUCCESS>true/false</SUCCESS>
+  //   <STATUSCODE>200/100</STATUSCODE><RESPONSEERROR>...</RESPONSEERROR></RESPONSE>
+  const resp = extractOrianResponse(responseText);
+
+  // אם לא הצלחנו לפענח את התשובה בכלל — מתעדים את הגוף הגולמי לאבחון
+  if (!resp) {
+    throw new Error(`תשובת אוריין לא מזוהה (HTTP ${response.status}): ${responseText.slice(0, 300)}`);
   }
 
+  const success = String(resp.SUCCESS).toLowerCase() === 'true';
+  const statusCode = resp.STATUSCODE ?? '';
+  const errorMsg = resp.RESPONSEERROR || '';
+  console.log(`📥 [Orian] חיווי: SUCCESS=${success} | STATUSCODE=${statusCode} | RESPONSEERROR=${errorMsg}`);
+
   if (!success) {
-    throw new Error(`אוריין דחתה את ההזמנה: ${errorMsg}`);
+    throw new Error(`אוריין דחתה את ההזמנה (STATUSCODE ${statusCode}): ${errorMsg || 'ללא פירוט'}`);
   }
 
   // התגובה לא מחזירה TRANSPORTATIONORDERID — משתמשים ב-reference_id
@@ -234,9 +360,9 @@ export async function getTransportationOrderLabel(env, referenceId) {
     method: 'POST',
     headers: {
       ...labelAuthHeaders,
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/xml',
     },
-    body: `xmldata=${encodeURIComponent(xml)}`,
+    body: xml,
   });
 
   const responseText = await response.text();
@@ -250,8 +376,7 @@ export async function getTransportationOrderLabel(env, referenceId) {
   let labelBase64 = null;
   let success = false;
   try {
-    const parsed = parseXml(responseText);
-    const resp = parsed?.DATACOLLECTION?.RESPONSE;
+    const resp = extractOrianResponse(responseText);
     success = String(resp?.SUCCESS).toLowerCase() === 'true';
     labelBase64 = resp?.LABEL?.__cdata || resp?.LABEL;
   } catch {
