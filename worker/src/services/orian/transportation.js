@@ -114,8 +114,13 @@ async function createMockOrder({ shipment, sourceBranch, targetBranch }) {
   await new Promise((r) => setTimeout(r, 150));
   // מזהה mock: 12 ספרות, תחילית 99
   const mockId = `99${Math.floor(Math.random() * 1e10).toString().padStart(10, '0')}`;
-  console.log(`🎭 [Orian Mock] orian_order_id = ${mockId}`);
-  return { orian_order_id: mockId, source: 'mock' };
+  // מזהי חבילה מדומים — אחד לכל מארז, כדי לדמות את מה שאוריין מקבלת
+  const packageIds = [];
+  for (let i = 0; i < shipment.package_count; i++) {
+    packageIds.push(generatePackageId(shipment.id, i));
+  }
+  console.log(`🎭 [Orian Mock] orian_order_id = ${mockId} | חבילות: ${packageIds.join(',')}`);
+  return { orian_order_id: mockId, source: 'mock', package_ids: packageIds };
 }
 
 // ===================================================================
@@ -339,10 +344,13 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
   }
 
   // התגובה לא מחזירה TRANSPORTATIONORDERID — משתמשים ב-reference_id
-  console.log(`✅ [Orian Live] הזמנה נוצרה: ${shipment.reference_id}`);
+  // שומרים את ה-PACKAGEIDs שיצרנו כדי שנוכל לשלוף סטטוס חבילה בהמשך
+  const packageIds = packages.map((p) => p.PACKAGEID);
+  console.log(`✅ [Orian Live] הזמנה נוצרה: ${shipment.reference_id} | חבילות: ${packageIds.join(',')}`);
   return {
     orian_order_id: shipment.reference_id,
     source: 'live',
+    package_ids: packageIds,
   };
 }
 
@@ -522,18 +530,28 @@ export async function getPackageStatus(env, packages) {
 
 /**
  * מחלץ רשימת סטטוסי חבילה מתוך תגובת אוריין שפוענחה.
- * מבנה: DATACOLLECTION > RESPONSE (בודד או מערך) עם PACKAGE / PACKAGESTATUS.
+ * אוריין לא עקבית: לפי התיעוד הסטטוס יושב תחת <RESPONSE>, אבל בפועל
+ * (וכן בתגובת "No Records Found") הוא חוזר תחת <DATA>. לכן בודקים את שניהם.
+ * מבנה: DATACOLLECTION > (RESPONSE | DATA) עם PACKAGE / PACKAGESTATUS.
  * @returns {Array<{package:string,status:string,statusDate:string,tracking:string}>}
  */
 function extractPackageStatuses(parsed) {
   const dc = parsed?.DATACOLLECTION;
-  if (!dc || !dc.RESPONSE) return [];
+  if (!dc) return [];
 
-  const responses = Array.isArray(dc.RESPONSE) ? dc.RESPONSE : [dc.RESPONSE];
+  // אוספים גם RESPONSE וגם DATA (כל אחד יכול להיות בודד או מערך)
+  const nodes = [];
+  for (const key of ['RESPONSE', 'DATA']) {
+    if (!dc[key]) continue;
+    if (Array.isArray(dc[key])) nodes.push(...dc[key]);
+    else nodes.push(dc[key]);
+  }
+
   const cdata = (v) => (v && typeof v === 'object' ? v.__cdata : v);
   const out = [];
 
-  for (const r of responses) {
+  for (const r of nodes) {
+    // רק רשומות שמכילות סטטוס חבילה ממשי (לא רשומת שגיאה כללית)
     if (r.PACKAGE === undefined && r.PACKAGESTATUS === undefined) continue;
     out.push({
       package: String(cdata(r.PACKAGE) ?? '').trim(),

@@ -3,7 +3,7 @@
 
 import { Hono } from 'hono';
 import * as shipments from '../services/shipments.js';
-import { getTransportationOrderLabel } from '../services/orian/index.js';
+import { getTransportationOrderLabel, getPackageStatus } from '../services/orian/index.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = new Hono();
@@ -262,6 +262,40 @@ router.get('/:id/label', requireAuth, requireRole('admin', 'warehouse', 'branch'
       // תאימות לאחור — המדבקה הראשונה
       label_pdf: labelPdfs[0],
       label_base64: labels[0],
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, error.statusCode || 500);
+  }
+});
+
+/**
+ * GET /api/shipments/:id/package-status - שולף את סטטוס החבילות מאוריין.
+ * משתמש ב-PACKAGEIDs ששמרנו בעת יצירת ההזמנה.
+ * הרשאה: admin, warehouse, branch.
+ * הערה: עובד רק במצב live ורק אם נשמרו מזהי חבילות.
+ */
+router.get('/:id/package-status', requireAuth, requireRole('admin', 'warehouse', 'branch'), async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'), 10);
+    const shipment = await shipments.getShipmentById(c.env.DB, id);
+    if (!shipment) {
+      return c.json({ error: 'המשלוח לא נמצא' }, 404);
+    }
+    if (c.env.ORIAN_MODE !== 'live') {
+      return c.json({ error: 'סטטוס חבילה זמין רק במצב live' }, 400);
+    }
+    if (!shipment.package_ids) {
+      return c.json({ error: 'למשלוח זה אין מזהי חבילה שמורים מאוריין' }, 400);
+    }
+
+    const packages = shipment.package_ids.split(',').map((s) => s.trim()).filter(Boolean);
+    const statuses = await getPackageStatus(c.env, packages);
+
+    return c.json({
+      shipment_id: id,
+      reference_id: shipment.reference_id,
+      package_ids: packages,
+      statuses,  // [{ package, status, statusDate, tracking }]
     });
   } catch (error) {
     return c.json({ error: error.message }, error.statusCode || 500);

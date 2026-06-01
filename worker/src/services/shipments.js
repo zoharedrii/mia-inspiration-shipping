@@ -123,9 +123,14 @@ export async function createShipment(db, env, data, createdByUserId) {
     console.log(`✅ [Shipments] אוריין הצליח: orian_order_id=${orianResult?.orian_order_id}`);
 
     if (orianResult?.orian_order_id) {
+      // שומרים את מזהי החבילות כמחרוזת מופרדת בפסיקים (לשליפת סטטוס בהמשך)
+      const packageIds = Array.isArray(orianResult.package_ids)
+        ? orianResult.package_ids.join(',')
+        : null;
+
       await db
-        .prepare('UPDATE shipments SET orian_order_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-        .bind(orianResult.orian_order_id, newId)
+        .prepare('UPDATE shipments SET orian_order_id = ?, package_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .bind(orianResult.orian_order_id, packageIds, newId)
         .run();
 
       await db
