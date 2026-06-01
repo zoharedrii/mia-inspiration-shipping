@@ -90,6 +90,16 @@ export async function logout(env) {
 }
 
 /**
+ * מאפס את ה-token השמור *מקומית* בלבד (בלי לקרוא ל-Logout של אוריין).
+ * נחוץ כשאוריין מחזירה HTTP 401 — סימן שה-token שלנו נפסל בצד אוריין
+ * עוד לפני תום ה-cache המקומי (55 דק'), כדי לאלץ login חדש בניסיון הבא.
+ */
+export function clearToken() {
+  cachedToken = null;
+  tokenExpiry = null;
+}
+
+/**
  * האם יש Token תקף בזיכרון? (לבדיקות בלבד)
  */
 export function hasValidToken() {

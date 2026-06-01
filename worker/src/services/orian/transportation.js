@@ -4,11 +4,36 @@
 //   "mock" - מדמה את אוריין מקומית (ברירת מחדל)
 //   "live"  - קריאה אמיתית ל-API של אוריין
 
-import { getToken } from './auth.js';
+import { getToken, clearToken } from './auth.js';
 import { buildXml, parseXml } from './xml.js';
 
 function isMockMode(env) {
   return (env.ORIAN_MODE || 'mock').toLowerCase() === 'mock';
+}
+
+/**
+ * שולח בקשה לאוריין עם רענון AuthToken אוטומטי במקרה של 401.
+ *
+ * אוריין עלולה לפסול את ה-token לפני תום ה-cache המקומי שלנו (55 דק'),
+ * ואז כל בקשה תיכשל עם HTTP 401 כל עוד ה-isolate מחזיק token ישן.
+ * הפתרון: אם מתקבל 401 — מאפסים את ה-token, מתחברים מחדש פעם אחת ומנסים שוב.
+ *
+ * @param {object} env
+ * @param {(token: string) => Promise<Response>} buildRequest - בונה את הבקשה עם הטוקן
+ * @returns {Promise<Response>}
+ */
+async function fetchOrianWithAuth(env, buildRequest) {
+  let token = await getToken(env);
+  let response = await buildRequest(token);
+
+  if (response.status === 401) {
+    console.warn('⚠️  [Orian] התקבל HTTP 401 — מרעננים AuthToken ומנסים שוב');
+    clearToken();
+    token = await getToken(env);  // login חדש (ה-cache אופס)
+    response = await buildRequest(token);
+  }
+
+  return response;
 }
 
 /**
@@ -140,8 +165,6 @@ async function createMockOrder({ shipment, sourceBranch, targetBranch }) {
 async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
   const consignee = env.ORIAN_CONSIGNEE;
   if (!consignee) throw new Error('חסר ORIAN_CONSIGNEE');
-
-  const token = await getToken(env);
 
   // בניית רשימת PACKAGE — חבילה נפרדת לכל יחידה
   const packages = [];
@@ -323,11 +346,13 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
   // חשוב: היצירה דורשת XML *גולמי* עם application/xml.
   // (בניגוד למשיכת המדבקה, שדורשת "=" + form-urlencoded — ראה postToOrian.
   //  שליחת "=" כאן גורמת לאוריין לשגיאת XML: "Data at the root level is invalid".)
-  const response = await fetch(createUrl, {
-    method: 'POST',
-    headers: { ...buildAuthHeaders(token), 'Content-Type': 'application/xml; charset=utf-8' },
-    body: xml,
-  });
+  const response = await fetchOrianWithAuth(env, (token) =>
+    fetch(createUrl, {
+      method: 'POST',
+      headers: { ...buildAuthHeaders(token), 'Content-Type': 'application/xml; charset=utf-8' },
+      body: xml,
+    })
+  );
 
   const responseText = await response.text();
   console.log(`📥 [Orian] CreateTransportationOrder HTTP ${response.status}: ${responseText.slice(0, 500)}`);
@@ -388,8 +413,6 @@ export async function getTransportationOrderLabel(env, referenceId) {
   const consignee = env.ORIAN_CONSIGNEE;
   if (!consignee) throw new Error('חסר ORIAN_CONSIGNEE');
 
-  const token = await getToken(env);
-
   const payload = {
     DATACOLLECTION: {
       DATA: {
@@ -406,7 +429,7 @@ export async function getTransportationOrderLabel(env, referenceId) {
   console.log(`📤 [Orian] XML body:\n${xml}`);
 
   // אותו סגנון בקשה כמו CreateTransportationOrder: "=" + XML כשדה-טופס.
-  const response = await postToOrian(url, token, xml);
+  const response = await fetchOrianWithAuth(env, (token) => postToOrian(url, token, xml));
   const responseText = await response.text();
   console.log(`📥 [Orian] GetLabel HTTP ${response.status}: ${responseText.slice(0, 300)}`);
 
@@ -511,8 +534,6 @@ export async function getPackageStatus(env, packages) {
   const consignee = env.ORIAN_CONSIGNEE;
   if (!consignee) throw new Error('חסר ORIAN_CONSIGNEE');
 
-  const token = await getToken(env);
-
   // מחברים את ה-PackageIDs בפסיקים (ה-API תומך בכמה חבילות בבקשה אחת)
   const packageParam = Array.isArray(packages) ? packages.join(',') : String(packages);
   const url =
@@ -522,7 +543,9 @@ export async function getPackageStatus(env, packages) {
 
   console.log(`📤 [Orian] GetPackageStatus → ${url}`);
 
-  const response = await fetch(url, { method: 'GET', headers: buildAuthHeaders(token) });
+  const response = await fetchOrianWithAuth(env, (token) =>
+    fetch(url, { method: 'GET', headers: buildAuthHeaders(token) })
+  );
   const responseText = await response.text();
   console.log(`📥 [Orian] GetPackageStatus HTTP ${response.status}: ${responseText.slice(0, 400)}`);
 
