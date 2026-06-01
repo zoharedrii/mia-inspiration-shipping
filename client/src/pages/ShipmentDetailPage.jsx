@@ -20,6 +20,7 @@ import {
   STATUS_LABELS,
 } from '../api/shipments.js';
 import StatusBadge from '../components/StatusBadge.jsx';
+import PackageProgress from '../components/PackageProgress.jsx';
 
 const PACKAGE_TYPE_MAP = Object.fromEntries(PACKAGE_TYPES.map((p) => [p.value, p.label]));
 
@@ -208,6 +209,9 @@ export default function ShipmentDetailPage() {
           </div>
         )}
       </div>
+
+      {/* בר התקדמות חבילות מאוריין — רק אם נשמרו מזהי חבילה */}
+      {shipment.package_ids && <PackageProgress shipmentId={shipment.id} />}
 
       {/* טיימליין שינויי סטטוס */}
       <div className="card space-y-4">

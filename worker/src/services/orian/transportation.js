@@ -557,7 +557,8 @@ function extractPackageStatuses(parsed) {
       package: String(cdata(r.PACKAGE) ?? '').trim(),
       status: String(cdata(r.PACKAGESTATUS) ?? '').trim(),
       statusDate: String(cdata(r.STATUSDATE) ?? '').trim(),
-      tracking: String(cdata(r.URLTRACKING) ?? '').trim(),
+      // אוריין מחזירה את ה-URL עם "?" מיותר בהתחלה — מסירים אותו
+      tracking: String(cdata(r.URLTRACKING) ?? '').trim().replace(/^\?/, ''),
     });
   }
   return out;

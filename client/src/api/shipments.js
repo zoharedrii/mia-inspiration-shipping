@@ -101,6 +101,31 @@ export function canPrintLabel(shipment) {
 }
 
 /**
+ * שולף את סטטוס החבילות מאוריין (לפי ה-PACKAGEIDs ששמרנו).
+ * עובד רק במצב live ורק אם נשמרו מזהי חבילות.
+ * @returns {Promise<{statuses: Array<{package,status,statusDate,tracking}>}>}
+ */
+export async function getPackageStatus(id) {
+  const { data } = await apiClient.get(`/shipments/${id}/package-status`);
+  return data; // { shipment_id, reference_id, package_ids, statuses }
+}
+
+// שלבי מסע החבילה לפי אוריין (זרימת משלוח) — לבר ההתקדמות
+export const PACKAGE_FLOW = ['NEW', 'PICKEDUP', 'OFFLOADED', 'LOADED', 'DELIVERED'];
+
+// תוויות עבריות לכל סטטוס חבילה של אוריין
+export const PACKAGE_STATUS_LABELS = {
+  NEW: 'נוצרה',
+  PICKEDUP: 'נאספה',
+  OFFLOADED: 'במיון',
+  LOADED: 'בהפצה',
+  DROPEDATPUDO: 'בנקודת איסוף',
+  DELIVERED: 'נמסרה',
+  LOST: 'אבדה',
+  CANCELED: 'בוטלה',
+};
+
+/**
  * האם המשתמש יכול לבטל את המשלוח (לפי הלוגיקה של ה-Backend).
  * שימושי להחלטה אם להציג כפתור ביטול ב-UI.
  */
