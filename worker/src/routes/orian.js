@@ -46,9 +46,31 @@ router.get('/test', async (c) => {
 router.get('/debug', async (c) => {
   const steps = [];
 
-  // שלב 1: Login
+  // שלב 1: Login — מציג את כל התשובה (headers + body)
   let token = null;
   try {
+    const username = c.env.ORIAN_USERNAME;
+    const password = c.env.ORIAN_PASSWORD;
+    const credentials = btoa(`${username}:${password}`);
+
+    const loginRes = await fetch(`${c.env.ORIAN_BASE_URL}/Login`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    const loginBody = await loginRes.text();
+    const loginHeaders = Object.fromEntries(loginRes.headers.entries());
+
+    steps.push({
+      step: 'login_raw',
+      httpStatus: loginRes.status,
+      responseHeaders: loginHeaders,
+      responseBody: loginBody,
+      note: 'כל ה-headers מ-Login — מחפשים AuthToken/token/Set-Token/X-Auth וכו\'',
+    });
+
     token = await orian.login(c.env);
     steps.push({ step: 'login', status: 'ok', token, tokenLength: token?.length });
   } catch (err) {
