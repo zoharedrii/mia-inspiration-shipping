@@ -53,24 +53,8 @@ export default function LabelsBatchPage() {
         .map((r, i) => r.status === 'fulfilled' ? r.value : null)
         .filter(Boolean);
 
-      // סימון אוטומטי כ"נשלח" לממתינים
-      const canMark = user.role === 'admin' || user.role === 'warehouse';
-      let autoSent = 0;
-      if (canMark) {
-        loadedShipments = await Promise.all(
-          loadedShipments.map(async (s) => {
-            if (s.status !== 'pending') return s;
-            try {
-              const result = await markShipmentAsSent(s.id, 'print');
-              if (!result.alreadySent) autoSent++;
-              return result.shipment;
-            } catch { return s; }
-          })
-        );
-      }
-      setAutoSentCount(autoSent);
-
-      // משיכת כל המדבקות מאוריין במקביל
+      // חשוב: אוריין מאפשרת למשוך מדבקה רק כשההזמנה במצב "חדש".
+      // לכן מושכים קודם את כל המדבקות, ורק אחר כך מסמנים "נשלח".
       const labelResults = await Promise.allSettled(
         loadedShipments.map((s) => getShipmentLabel(s.id))
       );
@@ -84,6 +68,22 @@ export default function LabelsBatchPage() {
       });
 
       setLabels(labelsData);
+
+      // סימון אוטומטי כ"נשלח" לממתינים — רק אחרי שהמדבקות נמשכו
+      const canMark = user.role === 'admin' || user.role === 'warehouse';
+      let autoSent = 0;
+      if (canMark) {
+        await Promise.all(
+          loadedShipments.map(async (s) => {
+            if (s.status !== 'pending') return;
+            try {
+              const result = await markShipmentAsSent(s.id, 'print');
+              if (!result.alreadySent) autoSent++;
+            } catch { /* לא קריטי — המדבקה כבר נמשכה */ }
+          })
+        );
+      }
+      setAutoSentCount(autoSent);
       setLoading(false);
     }
 

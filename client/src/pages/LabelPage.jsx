@@ -26,7 +26,12 @@ export default function LabelPage() {
           return;
         }
 
-        // סימון אוטומטי כ"נשלח" בעת הדפסה
+        // חשוב: אוריין מאפשרת למשוך מדבקה רק כשההזמנה במצב "חדש".
+        // לכן מושכים את המדבקה *קודם*, ורק אחריה מסמנים "נשלח".
+        const labelData = await getShipmentLabel(id);
+        setLabelPdf(labelData.label_pdf);
+
+        // סימון אוטומטי כ"נשלח" — רק אחרי שהמדבקה נמשכה בהצלחה
         if (data.status === 'pending' && (user.role === 'admin' || user.role === 'warehouse')) {
           const result = await markShipmentAsSent(id, 'print');
           data = result.shipment;
@@ -34,10 +39,6 @@ export default function LabelPage() {
         }
 
         setShipment(data);
-
-        // משיכת מדבקה מאוריין
-        const labelData = await getShipmentLabel(id);
-        setLabelPdf(labelData.label_pdf);
 
       } catch (err) {
         const msg = err.response?.data?.error || err.message || 'שגיאה בטעינת המדבקה';
