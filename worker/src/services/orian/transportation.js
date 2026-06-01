@@ -20,14 +20,18 @@ function buildAuthHeaders(token) {
 }
 
 /**
- * שולח בקשת POST לאוריין בפורמט הנדרש.
+ * שולח בקשת POST ל-endpoint של אוריין שמצפה ל-XML כשדה-טופס.
+ * משמש את משיכת המדבקה (GetTransporttaionOrderLabel).
  *
- * חשוב (לפי הנחיית רועי מאוריין): אוריין מצפה שה-XML יישלח כשדה-טופס עם
+ * חשוב (לפי הנחיית רועי מאוריין): המדבקה מצפה שה-XML יישלח כשדה-טופס עם
  * מפתח ריק — כלומר הגוף חייב להתחיל ב-"=" ואז ה-<DATACOLLECTION>:
  *     =<DATACOLLECTION>...</DATACOLLECTION>
  * ו-Content-Type חייב להיות application/x-www-form-urlencoded.
  * בלי ה-"=" אוריין קוראת Request.Form[""] ומקבלת null → קריסת .NET
  * ("Value cannot be null. Parameter name: s").
+ *
+ * הערה: יצירת ההזמנה (CreateTransportationOrder) דווקא דורשת XML גולמי —
+ * שם "=" יגרום לשגיאת "Data at the root level is invalid".
  *
  * @param {string} url - כתובת ה-endpoint המלאה
  * @param {string} token - טוקן האימות
@@ -299,8 +303,14 @@ async function createLiveOrder(env, { shipment, sourceBranch, targetBranch }) {
   console.log(`📤 [Orian] shipment: ${shipment.reference_id}`);
   console.log(`📤 [Orian] XML payload (ראשית 500 תווים): ${xml.slice(0, 500)}`);
 
-  // אוריין מצפה ל-"=" + XML כשדה-טופס (ראה postToOrian).
-  const response = await postToOrian(createUrl, token, xml);
+  // חשוב: היצירה דורשת XML *גולמי* עם application/xml.
+  // (בניגוד למשיכת המדבקה, שדורשת "=" + form-urlencoded — ראה postToOrian.
+  //  שליחת "=" כאן גורמת לאוריין לשגיאת XML: "Data at the root level is invalid".)
+  const response = await fetch(createUrl, {
+    method: 'POST',
+    headers: { ...buildAuthHeaders(token), 'Content-Type': 'application/xml' },
+    body: xml,
+  });
 
   const responseText = await response.text();
   console.log(`📥 [Orian] CreateTransportationOrder HTTP ${response.status}: ${responseText.slice(0, 500)}`);
