@@ -2,7 +2,6 @@
 
 import { Hono } from 'hono';
 import * as orian from '../services/orian/index.js';
-import { getSessionCookie } from '../services/orian/auth.js';
 import { buildXml } from '../services/orian/xml.js';
 
 const router = new Hono();
@@ -13,17 +12,11 @@ const router = new Hono();
 router.get('/test', async (c) => {
   try {
     const token = await orian.login(c.env);
-    // בסביבת טסט הטוקן הוא "Authorized" (לא JWT של פרודקשן)
-    const isTestMode = token === 'Authorized' || token.startsWith('Basic ');
     return c.json({
       status: 'ok',
-      message: isTestMode
-        ? '✅ חיבור לאוריין הצליח (סביבת טסט — AuthToken="Authorized")'
-        : '✅ התחברות לאוריין הצליחה',
+      message: '✅ התחברות לאוריין הצליחה — AuthToken התקבל',
       tokenReceived: Boolean(token),
-      isTestCredentials: isTestMode,
       environment: c.env.ORIAN_BASE_URL,
-      note: isTestMode ? 'פרטי פרודקשן יחליפו זאת לטוקן אמיתי' : undefined,
     });
   } catch (error) {
     return c.json(
@@ -79,11 +72,9 @@ router.get('/debug', async (c) => {
   }
 
   // שלב 2: בניית XML מינימלי ושליחה ל-CreateTransportationOrder
-  const cookie = getSessionCookie();
-  const authHeader = token.startsWith('Basic ')
-    ? { Authorization: token, ...(cookie ? { Cookie: cookie } : {}) }
-    : { AuthToken: token };
-  steps.push({ step: 'auth_headers', headers: Object.keys(authHeader), hasCookie: Boolean(cookie) });
+  // הטוקן (GUID מ-header authtoken) נשלח כ-AuthToken
+  const authHeader = { AuthToken: token };
+  steps.push({ step: 'auth_headers', headers: Object.keys(authHeader) });
   const consignee = c.env.ORIAN_CONSIGNEE || '30000060';
   const testXml = buildXml({
     DATACOLLECTION: {

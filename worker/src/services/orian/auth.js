@@ -1,19 +1,18 @@
-// אימות מול אוריין - Login + ניהול AuthToken + Session Cookie.
+// אימות מול אוריין - Login + ניהול AuthToken.
 //
-// פרודקשן: Login מחזיר { AuthToken: "..." } — JWT בתוקף שעה.
-// סביבת טסט (Test/Ts123456): Login מחזיר "Authorized" + Set-Cookie session.
-//   במצב זה שולחים בקריאות API: Authorization: Basic ... + Cookie: <session>
+// חשוב: אוריין מחזירה את ה-AuthToken ב-HEADER בשם "authtoken" (לא ב-body!).
+// ה-body של Login מכיל רק "Authorized" — זו הודעת אישור, לא הטוקן.
+// הטוקן הוא GUID (למשל "959b87f8-5dd3-469c-a9d8-d4a30de4a92e") שנשלח
+// בקריאות הבאות ב-header "AuthToken". זהה לסביבת טסט ולסביבת פרודקשן.
 
-let cachedToken = null;      // JWT (פרודקשן) או "Basic ..." (טסט)
-let cachedCookie = null;     // Session Cookie מ-Login (טסט בלבד, אך שמור תמיד)
+let cachedToken = null;
 let tokenExpiry = null;
 
-// תוקף אמיתי שעה - שומרים 55 דקות לבטחון מפני clock-skew
+// תוקף - שומרים 55 דקות לבטחון מפני clock-skew
 const TOKEN_TTL_MS = 55 * 60 * 1000;
 
 /**
  * מתחבר לאוריין עם שם משתמש וסיסמה (מ-env) ומחזיר AuthToken חדש.
- * שומר גם Set-Cookie מה-Login לשימוש בקריאות הבאות.
  * @returns {Promise<string>}
  */
 export async function login(env) {
@@ -24,7 +23,7 @@ export async function login(env) {
     throw new Error('חסרים פרטי גישה לאוריין: ORIAN_USERNAME ו/או ORIAN_PASSWORD לא הוגדרו');
   }
 
-  // אוריין דורשת Basic Auth - שם משתמש וסיסמה ב-Base64
+  // אוריין דורשת Basic Auth ל-Login - שם משתמש וסיסמה ב-Base64
   const credentials = btoa(`${username}:${password}`);
 
   const response = await fetch(`${env.ORIAN_BASE_URL}/Login`, {
@@ -39,33 +38,23 @@ export async function login(env) {
     throw new Error(`התחברות לאוריין נכשלה (HTTP ${response.status})`);
   }
 
-  // שמירת Session Cookie מ-Login — ייתכן שנדרש בקריאות הבאות
-  const setCookieHeader = response.headers.get('set-cookie');
-  if (setCookieHeader) {
-    // לוקחים רק את חלק ה-NAME=VALUE (לפני הפסיק/semicolon הראשון)
-    cachedCookie = setCookieHeader.split(';')[0].trim();
-    console.log(`🍪 [Orian] Session Cookie נשמר מ-Login: ${cachedCookie.split('=')[0]}=***`);
+  // ה-AuthToken מגיע ב-header "authtoken" (ה-body הוא רק "Authorized")
+  let token = response.headers.get('authtoken');
+
+  // נפילה לאחור: אם בעתיד יוחזר ב-body כ-{ AuthToken: "..." }
+  if (!token) {
+    const data = await response.json().catch(() => null);
+    token = data?.AuthToken;
   }
 
-  // פרודקשן: { AuthToken: "..." } | טסט: "Authorized"
-  const data = await response.json();
-  let token = data?.AuthToken;
-
   if (!token) {
-    if (data === 'Authorized') {
-      // סביבת טסט: ה-Login מחזיר "Authorized" + Cookie Session.
-      // שומרים Basic credentials כטוקן — ישלחו כ-Authorization: Basic ...
-      token = `Basic ${credentials}`;
-      console.log('ℹ️  [Orian] סביבת טסט — Authorization: Basic + Cookie Session');
-    } else {
-      throw new Error(`התחברות לאוריין הצליחה אך לא התקבל AuthToken. תגובה: ${JSON.stringify(data)}`);
-    }
+    throw new Error('התחברות לאוריין הצליחה אך לא התקבל AuthToken (header "authtoken" חסר)');
   }
 
   cachedToken = token;
   tokenExpiry = Date.now() + TOKEN_TTL_MS;
 
-  console.log('🔑 [Orian] Login הצליח (תוקף 55 דקות)');
+  console.log('🔑 [Orian] AuthToken התקבל מ-header (תוקף 55 דקות)');
   return token;
 }
 
@@ -81,35 +70,21 @@ export async function getToken(env) {
 }
 
 /**
- * מחזיר את ה-Session Cookie השמור (אם יש).
- * משמש ב-transportation.js לצירוף Cookie לקריאות API.
- */
-export function getSessionCookie() {
-  return cachedCookie;
-}
-
-/**
  * מתנתק מאוריין ומאפס את הטוקן השמור (אופציונלי).
  */
 export async function logout(env) {
   if (!cachedToken) return;
 
   try {
-    const authHeader = cachedToken.startsWith('Basic ')
-      ? { Authorization: cachedToken }
-      : { AuthToken: cachedToken };
-    if (cachedCookie) authHeader.Cookie = cachedCookie;
-
     await fetch(`${env.ORIAN_BASE_URL}/Logout`, {
       method: 'POST',
-      headers: authHeader,
+      headers: { AuthToken: cachedToken },
     });
     console.log('🚪 [Orian] התנתקנו בהצלחה');
   } catch (error) {
     console.warn('⚠️  [Orian] שגיאה ב-logout (לא קריטי):', error.message);
   } finally {
     cachedToken = null;
-    cachedCookie = null;
     tokenExpiry = null;
   }
 }

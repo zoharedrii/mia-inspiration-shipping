@@ -4,7 +4,7 @@
 //   "mock" - מדמה את אוריין מקומית (ברירת מחדל)
 //   "live"  - קריאה אמיתית ל-API של אוריין
 
-import { getToken, getSessionCookie } from './auth.js';
+import { getToken } from './auth.js';
 import { buildXml, parseXml } from './xml.js';
 
 function isMockMode(env) {
@@ -12,26 +12,10 @@ function isMockMode(env) {
 }
 
 /**
- * בונה את ה-headers לאימות מול אוריין לפי סוג הטוקן.
- *
- * סביבת טסט (token = "Basic ..."):
- *   - Authorization: Basic ...  (פרטי כניסה)
- *   - Cookie: <session מ-Login>  (Session Cookie שהשרת נתן ב-Login)
- *
- * סביבת פרודקשן (token = JWT):
- *   - AuthToken: <JWT>
+ * בונה את ה-header לאימות מול אוריין.
+ * הטוקן (GUID בטסט / JWT בפרודקשן) נשלח תמיד ב-header "AuthToken".
  */
 function buildAuthHeaders(token) {
-  const cookie = getSessionCookie();
-  if (token.startsWith('Basic ')) {
-    const headers = { Authorization: token };
-    if (cookie) {
-      headers.Cookie = cookie;
-      console.log(`🍪 [Orian] שולח Cookie: ${cookie.split('=')[0]}=***`);
-    }
-    return headers;
-  }
-  // פרודקשן: JWT נשלח ב-AuthToken
   return { AuthToken: token };
 }
 
