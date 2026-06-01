@@ -350,21 +350,18 @@ export async function getTransportationOrderLabel(env, referenceId) {
   };
 
   const xml = buildXml(payload);
-
-  // שגיאת כתיב "Transporrtaion" — כך בדיוק מוגדר ב-API של אוריין
+  const url = `${env.ORIAN_BASE_URL}/GetTransporttaionOrderLabel`;
   const labelAuthHeaders = buildAuthHeaders(token);
-  console.log(`📤 [Orian] GetTransporttaionOrderLabel → referenceId: ${referenceId}`);
-  console.log(`📤 [Orian] Auth header type: ${Object.keys(labelAuthHeaders)[0]}`);
 
-  const response = await fetch(`${env.ORIAN_BASE_URL}/GetTransporttaionOrderLabel`, {
+  console.log(`📤 [Orian] GetTransporttaionOrderLabel → referenceId: ${referenceId}`);
+  console.log(`📤 [Orian] XML body:\n${xml}`);
+
+  // אותו סגנון בקשה כמו CreateTransportationOrder: XML גולמי + application/xml.
+  const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      ...labelAuthHeaders,
-      'Content-Type': 'application/xml',
-    },
+    headers: { ...labelAuthHeaders, 'Content-Type': 'application/xml' },
     body: xml,
   });
-
   const responseText = await response.text();
   console.log(`📥 [Orian] GetLabel HTTP ${response.status}: ${responseText.slice(0, 300)}`);
 
@@ -372,22 +369,34 @@ export async function getTransportationOrderLabel(env, referenceId) {
     throw new Error(`משיכת מדבקה מאוריין נכשלה (HTTP ${response.status}): ${responseText.slice(0, 200)}`);
   }
 
-  // ניתוח XML — המדבקה נמצאת ב-<LABEL><![CDATA[...base64...]]></LABEL>
-  let labelBase64 = null;
-  let success = false;
-  try {
-    const resp = extractOrianResponse(responseText);
-    success = String(resp?.SUCCESS).toLowerCase() === 'true';
-    labelBase64 = resp?.LABEL?.__cdata || resp?.LABEL;
-  } catch {
-    throw new Error('שגיאה בניתוח תגובת המדבקה מאוריין');
-  }
+  // ניתוח XML — המדבקה ב-<LABEL><![CDATA[...base64...]]></LABEL>.
+  // אם להזמנה כמה חבילות, אוריין מחזירה כמה תגיות LABEL (מערך).
+  const resp = extractOrianResponse(responseText);
+  const success = String(resp?.SUCCESS).toLowerCase() === 'true';
+  const labels = extractLabels(resp);
 
-  if (!success || !labelBase64) {
+  if (!success || labels.length === 0) {
     throw new Error(`לא התקבלה מדבקה מאוריין (הזמנה: ${referenceId})`);
   }
 
-  return labelBase64;  // Base64 PDF
+  console.log(`✅ [Orian] התקבלו ${labels.length} מדבקות`);
+  return labels;  // מערך של Base64 PDF (לפחות אחד)
+}
+
+/**
+ * מחלץ את כל מחרוזות ה-Base64 של המדבקות מתוך תגובת אוריין.
+ * תומך גם במדבקה בודדת וגם במספר מדבקות (מספר תגיות <LABEL>).
+ * @returns {string[]} מערך של מחרוזות Base64 (יכול להיות ריק)
+ */
+function extractLabels(resp) {
+  if (!resp) return [];
+  const raw = resp.LABEL;
+  if (!raw) return [];
+  // fast-xml-parser מחזיר מערך כשיש כמה תגיות LABEL, או ערך בודד כשיש אחת
+  const items = Array.isArray(raw) ? raw : [raw];
+  return items
+    .map((item) => (item && typeof item === 'object' ? item.__cdata : item))
+    .filter((s) => typeof s === 'string' && s.length > 0);
 }
 
 // ===================================================================

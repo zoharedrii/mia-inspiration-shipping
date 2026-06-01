@@ -9,9 +9,8 @@ export default function LabelPage() {
   const { id } = useParams();
   const { user } = useAuth();
   const [shipment, setShipment] = useState(null);
-  const [labelPdf, setLabelPdf] = useState(null);
+  const [labelPdfs, setLabelPdfs] = useState([]);  // מערך — להזמנה עם כמה חבילות יש כמה מדבקות
   const [loading, setLoading] = useState(true);
-  const [iframeLoading, setIframeLoading] = useState(true);
   const [error, setError] = useState('');
   const [autoSentNotice, setAutoSentNotice] = useState(false);
 
@@ -29,7 +28,9 @@ export default function LabelPage() {
         // חשוב: אוריין מאפשרת למשוך מדבקה רק כשההזמנה במצב "חדש".
         // לכן מושכים את המדבקה *קודם*, ורק אחריה מסמנים "נשלח".
         const labelData = await getShipmentLabel(id);
-        setLabelPdf(labelData.label_pdf);
+        // תמיכה במערך מדבקות (label_pdfs) עם נפילה-לאחור למדבקה בודדת
+        const pdfs = labelData.label_pdfs || (labelData.label_pdf ? [labelData.label_pdf] : []);
+        setLabelPdfs(pdfs);
 
         // סימון אוטומטי כ"נשלח" — רק אחרי שהמדבקה נמשכה בהצלחה
         if (data.status === 'pending' && (user.role === 'admin' || user.role === 'warehouse')) {
@@ -59,7 +60,7 @@ export default function LabelPage() {
     );
   }
 
-  if (error || !labelPdf) {
+  if (error || labelPdfs.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-4">
         <div className="card border-red-200 bg-red-50 text-red-700">
@@ -85,28 +86,25 @@ export default function LabelPage() {
             ✓ המשלוח סומן כ"נשלח"
           </div>
         )}
+        {labelPdfs.length > 1 && (
+          <div className="text-sm text-gray-600 mx-3">{labelPdfs.length} מדבקות</div>
+        )}
         <button onClick={() => window.print()} className="btn-primary mr-auto">
           🖨️ הדפסה
         </button>
       </div>
 
-      {/* מדבקת אוריין */}
-      <div className="max-w-4xl mx-auto px-4 relative">
-        {iframeLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded z-10">
-            <div className="text-center text-gray-500">
-              <div className="text-3xl mb-2 animate-bounce">📄</div>
-              <div>טוען מדבקה...</div>
-            </div>
-          </div>
-        )}
-        <iframe
-          src={labelPdf}
-          title="מדבקת שילוח אוריין"
-          className="w-full border rounded bg-white"
-          style={{ height: '90vh', minHeight: '600px' }}
-          onLoad={() => setIframeLoading(false)}
-        />
+      {/* מדבקות אוריין — iframe לכל חבילה */}
+      <div className="max-w-4xl mx-auto px-4 space-y-6 print:space-y-0">
+        {labelPdfs.map((pdf, i) => (
+          <iframe
+            key={i}
+            src={pdf}
+            title={`מדבקת שילוח אוריין ${i + 1}`}
+            className={'w-full border rounded bg-white ' + (i < labelPdfs.length - 1 ? 'print:break-after-page' : '')}
+            style={{ height: '90vh', minHeight: '600px' }}
+          />
+        ))}
       </div>
 
       <style>{`

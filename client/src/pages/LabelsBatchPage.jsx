@@ -62,7 +62,9 @@ export default function LabelsBatchPage() {
       const labelsData = loadedShipments.map((s, i) => {
         const r = labelResults[i];
         if (r.status === 'fulfilled') {
-          return { id: s.id, reference_id: s.reference_id, labelPdf: r.value.label_pdf };
+          // תמיכה במערך מדבקות (label_pdfs) עם נפילה-לאחור למדבקה בודדת
+          const pdfs = r.value.label_pdfs || (r.value.label_pdf ? [r.value.label_pdf] : []);
+          return { id: s.id, reference_id: s.reference_id, labelPdfs: pdfs };
         }
         return { id: s.id, reference_id: s.reference_id, error: r.reason?.response?.data?.error || 'שגיאה' };
       });
@@ -91,7 +93,7 @@ export default function LabelsBatchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsParam]);
 
-  const successCount = labels.filter((l) => l.labelPdf).length;
+  const successCount = labels.filter((l) => l.labelPdfs && l.labelPdfs.length > 0).length;
   const failCount = labels.filter((l) => l.error).length;
 
   if (loading) {
@@ -136,10 +138,9 @@ export default function LabelsBatchPage() {
         </div>
       )}
 
-      {/* מדבקות — iframe לכל משלוח */}
+      {/* מדבקות — iframe לכל חבילה בכל משלוח */}
       <div className="max-w-4xl mx-auto px-4 print:p-0 space-y-6 print:space-y-0">
-        {labels.map((label, i) => {
-          const isLast = i === labels.length - 1;
+        {labels.map((label) => {
           if (label.error) {
             return (
               <div key={label.id} className="card border-red-200 bg-red-50 text-red-700 print:hidden">
@@ -147,15 +148,15 @@ export default function LabelsBatchPage() {
               </div>
             );
           }
-          return (
-            <div key={label.id} className={!isLast ? 'print:break-after-page' : ''}>
+          return label.labelPdfs.map((pdf, j) => (
+            <div key={`${label.id}-${j}`} className="print:break-after-page">
               <PdfIframe
-                src={label.labelPdf}
-                title={`מדבקה ${label.reference_id}`}
+                src={pdf}
+                title={`מדבקה ${label.reference_id}${label.labelPdfs.length > 1 ? ` (${j + 1}/${label.labelPdfs.length})` : ''}`}
                 style={{ height: '70vh', minHeight: '400px' }}
               />
             </div>
-          );
+          ));
         })}
       </div>
 

@@ -248,15 +248,20 @@ router.get('/:id/label', requireAuth, requireRole('admin', 'warehouse', 'branch'
       }, 400);
     }
 
-    // reference_id שלנו = REFERENCEORDER שנשלח לאוריין
-    const labelBase64 = await getTransportationOrderLabel(c.env, shipment.reference_id);
+    // reference_id שלנו = REFERENCEORDER שנשלח לאוריין.
+    // מוחזר מערך — להזמנה עם כמה חבילות אוריין מחזירה כמה מדבקות.
+    const labels = await getTransportationOrderLabel(c.env, shipment.reference_id);
+    const labelPdfs = labels.map((b64) => `data:application/pdf;base64,${b64}`);
 
     return c.json({
       shipment_id: id,
       reference_id: shipment.reference_id,
-      // data URL מוכן לשימוש ב-<iframe> או window.open
-      label_pdf: `data:application/pdf;base64,${labelBase64}`,
-      label_base64: labelBase64,
+      // מערך data-URL מוכן ל-<iframe> לכל מדבקה
+      label_pdfs: labelPdfs,
+      label_base64_list: labels,
+      // תאימות לאחור — המדבקה הראשונה
+      label_pdf: labelPdfs[0],
+      label_base64: labels[0],
     });
   } catch (error) {
     return c.json({ error: error.message }, error.statusCode || 500);
