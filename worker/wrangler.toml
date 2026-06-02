@@ -17,12 +17,16 @@ migrations_dir = "migrations"
 # משתני סביבה לא-סודיים (סודות מוגדרים דרך `wrangler secret put`)
 [vars]
 ORIAN_MODE = "live"
-# "live" = קריאות אמיתיות ל-API של אוריין (כרגע מול סביבת הטסט disapiTest)
+# "live" = קריאות אמיתיות ל-API של אוריין (כרגע מול סביבת האמת disapi)
 # "mock" = הדמיה מקומית בלי לקרוא לאוריין
-# כתובת ה-API של אוריין:
-#   סביבת טסט (כרגע): https://disapiTest.orian.com
-#   סביבת ייצור (בעתיד): לשנות לכתובת אוריין הרשמית אחרי קבלת פרטי פרודקשן מרונית/רועי
-ORIAN_BASE_URL = "https://disapiTest.orian.com"
-# הערה: JWT_SECRET, ORIAN_USERNAME, ORIAN_PASSWORD, ORIAN_CONSIGNEE הם סודות.
+# כתובת ה-API של אוריין (מתוך מסמך ה-API הרשמי של אוריין):
+#   סביבת טסט:  https://disapiTest.orian.com
+#   סביבת אמת:  https://disapi.orian.com
+ORIAN_BASE_URL = "https://disapi.orian.com"
+# ORIAN_CONSIGNEE = מספר ה-Consignee (מזהה החשבון) של מייה אצל אוריין.
+#   זהו משתנה *גלוי* (לא סוד) כדי שאפשר יהיה לראות ולוודא את הערך בקלות.
+#   הוא מספר חשבון, לא סיסמה — ולכן מוגדר כאן ולא דרך `wrangler secret`.
+ORIAN_CONSIGNEE = "1363866"
+# הערה: JWT_SECRET, ORIAN_USERNAME, ORIAN_PASSWORD הם סודות.
 #   - בפרודקשן: הוגדרו דרך `wrangler secret put <NAME>`
 #   - בפיתוח מקומי: יושבים בקובץ .dev.vars (שלא נכנס ל-Git)
