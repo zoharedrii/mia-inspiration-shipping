@@ -15,13 +15,14 @@ const ROLE_LABELS = {
 };
 
 // אילו פעולות זמינות לכל תפקיד
-// דוחות זמינים רק למנהל מערכת ולמנהל מחסן (החלטה עסקית)
+// דוחות זמינים למנהל מערכת, למנהל מחסן ולהנהלת חשבונות
+// הנהלת חשבונות = משתמש להפקת מידע בלבד (צפייה במשלוחים ובדוחות, בלי יצירה)
 // ניהול משתמשים - admin בלבד
 const ACTIONS_BY_ROLE = {
   admin:      ['create', 'list', 'reports', 'users'],
   warehouse:  ['create', 'list', 'reports'],
   branch:     ['create', 'list'],
-  accounting: ['list'],
+  accounting: ['list', 'reports'],
 };
 
 export default function HomePage() {

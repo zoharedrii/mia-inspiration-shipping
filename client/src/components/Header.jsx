@@ -17,7 +17,7 @@ const MENU_ITEMS_BY_ROLE = {
   admin:      ['home', 'create', 'list', 'reports', 'users'],
   warehouse:  ['home', 'create', 'list', 'reports'],
   branch:     ['home', 'create', 'list'],
-  accounting: ['home', 'list'],
+  accounting: ['home', 'list', 'reports'],
 };
 
 const MENU_ITEMS = {

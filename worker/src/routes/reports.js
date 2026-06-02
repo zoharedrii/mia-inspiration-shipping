@@ -1,4 +1,4 @@
-// Routes לדוחות. כולם מוגבלים ל-admin ו-warehouse.
+// Routes לדוחות. מוגבלים ל-admin, warehouse ו-accounting (קריאה בלבד).
 
 import { Hono } from 'hono';
 import * as reports from '../services/reports.js';
@@ -6,8 +6,8 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = new Hono();
 
-// דוחות זמינים רק למנהל מערכת ולמנהל מחסן
-router.use('*', requireAuth, requireRole('admin', 'warehouse'));
+// דוחות זמינים למנהל מערכת, למנהל מחסן ולהנהלת חשבונות (הנה"ח = צפייה בלבד)
+router.use('*', requireAuth, requireRole('admin', 'warehouse', 'accounting'));
 
 /**
  * עזר: תאריך התחלה וסיום של החודש הנוכחי בפורמט YYYY-MM-DD
