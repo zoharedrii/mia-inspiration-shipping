@@ -22,7 +22,7 @@
 - קורל בן נחום
 - נופר רושו
 
-**מנחה:** _להשלים_
+**מנחה:** חן אהרוני
 
 ---
 
@@ -32,10 +32,10 @@
 |------|-----------|
 | Frontend | React + Vite |
 | עיצוב | Tailwind CSS (RTL) |
-| Backend | Node.js + Express |
-| Database | SQLite |
+| Backend | Cloudflare Workers + Hono |
+| Database | Cloudflare D1 (SQLite) |
 | API חיצוני | אוריין (Orian) — REST/XML |
-| Deploy | Vercel + Railway |
+| Deploy | Cloudflare Workers + Pages |
 
 ---
 
@@ -43,16 +43,43 @@
 
 ```
 mia-inspiration-shipping/
-├── client/         # אפליקציית הצד-לקוח (React)
-├── server/         # שרת ה-API שלנו (Node.js + Express)
+├── client/         # אפליקציית הצד-לקוח (React + Vite)
+├── worker/         # שרת ה-API (Cloudflare Worker + Hono + D1)
+├── server/         # אב-טיפוס ראשוני (Node.js + Express) — הוחלף ב-worker/
 └── docs/           # תיעוד טכני, תרשימים, הערות
 ```
 
 ---
 
-## 🚀 איך להריץ (יושלם בהמשך)
+## 🚀 איך להריץ
 
-הוראות מפורטות יתווספו אחרי שנקים את ה-Backend וה-Frontend.
+### דרישות מוקדמות
+- Node.js גרסה 20 ומעלה
+- חשבון Cloudflare (נדרש להרצה מול הענן; להרצה מקומית בלבד אפשר בלי)
+
+### 1. הרצת ה-Backend (Worker)
+```bash
+cd worker
+npm install
+npm run db:migrate:local   # יצירת מסד הנתונים המקומי
+npm run db:seed:local      # טעינת נתוני התחלה (סניפים, משתמשים)
+npm run dev                # מריץ את ה-API באופן מקומי
+```
+
+> 🔑 להתחברות מול אוריין צריך ליצור קובץ `worker/.dev.vars` עם הסודות (`ORIAN_USERNAME`, `ORIAN_PASSWORD`, `JWT_SECRET`). הקובץ לא נכנס ל-Git מטעמי אבטחה.
+
+### 2. הרצת ה-Frontend
+```bash
+cd client
+npm install
+npm run dev                # פותח את האפליקציה בכתובת http://localhost:5173
+```
+
+### 🌐 המערכת החיה (מותקנת ב-Cloudflare)
+- **אפליקציה:** https://mia-shipping-frontend.pages.dev
+- **API:** https://mia-shipping-api.edrizohar2.workers.dev/api
+
+> פרטי התחברות לבדיקה — יימסרו בנפרד (לא מתפרסמים ברשת מטעמי אבטחה).
 
 ---
 
@@ -68,4 +95,4 @@ mia-inspiration-shipping/
 
 ---
 
-_פרויקט אקדמי — מכללת [שם המכללה], 2026_
+_פרויקט אקדמי — המכללה למנהל, 2026_
