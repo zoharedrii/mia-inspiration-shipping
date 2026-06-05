@@ -105,22 +105,6 @@ export default function LoginPage() {
             08-9380937
           </a>
         </div>
-
-        <div className="mt-4 card bg-blue-50/50 border-blue-100">
-          <h3 className="font-medium text-sm text-gray-700 mb-2">פרטי כניסה</h3>
-          <div className="text-xs text-gray-600 space-y-2">
-            <div>
-              <div className="font-medium text-gray-700 mb-1">מנהלים:</div>
-              <div><code className="bg-white px-1.5 py-0.5 rounded">admin</code> / <code className="bg-white px-1.5 py-0.5 rounded">password123</code> - מנהל מערכת</div>
-              <div><code className="bg-white px-1.5 py-0.5 rounded">warehouse</code> / <code className="bg-white px-1.5 py-0.5 rounded">password123</code> - מנהל מחסן</div>
-            </div>
-            <div className="pt-1 border-t border-blue-200">
-              <div className="font-medium text-gray-700 mb-1">סניפים:</div>
-              <div>שם משתמש: <strong>מספר הסניף</strong> (11, 12, ... 30)</div>
-              <div>סיסמה: <code className="bg-white px-1.5 py-0.5 rounded">Mia{'{מספר סניף}'}</code> — לדוגמה <code className="bg-white px-1.5 py-0.5 rounded">Mia11</code></div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
