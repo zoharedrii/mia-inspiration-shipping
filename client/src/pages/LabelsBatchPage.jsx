@@ -28,7 +28,7 @@ export default function LabelsBatchPage() {
 
   const [mergedUrl, setMergedUrl] = useState(null);   // blob URL של ה-PDF המאוחד
   const [pageCount, setPageCount] = useState(0);      // כמה עמודי מדבקות אוחדו
-  const [failedRefs, setFailedRefs] = useState([]);   // מספרי משלוחים שהמדבקה שלהם נכשלה
+  const [failed, setFailed] = useState([]);           // משלוחים שהמדבקה שלהם נכשלה: [{ ref, msg }]
   const [loading, setLoading] = useState(true);
   const [autoSentCount, setAutoSentCount] = useState(0);
   const iframeRef = useRef(null);
@@ -49,16 +49,19 @@ export default function LabelsBatchPage() {
         loadedShipments.map((s) => getShipmentLabel(s.id))
       );
 
-      // 3. איסוף כל מחרוזות ה-base64 של המדבקות + רישום כשלונות
+      // 3. איסוף כל מחרוזות ה-base64 של המדבקות + רישום כשלונות (עם הסיבה מהשרת)
       const allBase64 = [];
-      const failed = [];
+      const failedList = [];
       labelResults.forEach((r, i) => {
         if (r.status === 'fulfilled') {
           const list = r.value.label_base64_list
             || (r.value.label_base64 ? [r.value.label_base64] : []);
           allBase64.push(...list);
         } else {
-          failed.push(loadedShipments[i].reference_id);
+          failedList.push({
+            ref: loadedShipments[i].reference_id,
+            msg: r.reason?.response?.data?.error || 'שגיאה לא ידועה',
+          });
         }
       });
 
@@ -79,7 +82,7 @@ export default function LabelsBatchPage() {
         setMergedUrl(URL.createObjectURL(blob));
         setPageCount(mergedPdf.getPageCount());
       }
-      setFailedRefs(failed);
+      setFailed(failedList);
 
       // 5. סימון אוטומטי כ"נשלח" לממתינים — רק admin/warehouse, ורק אחרי משיכת המדבקות
       const canMark = user.role === 'admin' || user.role === 'warehouse';
@@ -140,8 +143,8 @@ export default function LabelsBatchPage() {
         <Link to="/shipments" className="btn-secondary">← חזרה לרשימה</Link>
         <div className="text-sm text-gray-600 mx-3">
           {pageCount} עמודי מדבקות במסמך אחד
-          {failedRefs.length > 0 && (
-            <span className="text-red-600 mr-2">(נכשלו {failedRefs.length})</span>
+          {failed.length > 0 && (
+            <span className="text-red-600 mr-2">(נכשלו {failed.length})</span>
           )}
         </div>
         {mergedUrl && (
@@ -168,11 +171,24 @@ export default function LabelsBatchPage() {
         </div>
       )}
 
-      {/* הודעה על מדבקות שנכשלו (אם יש) */}
-      {failedRefs.length > 0 && (
+      {/* הודעה על מדבקות שנכשלו (אם יש) — עם הסבר לסיבה הנפוצה */}
+      {failed.length > 0 && (
         <div className="max-w-4xl mx-auto px-4 mb-4">
-          <div className="card border-red-200 bg-red-50 text-red-700 text-sm">
-            לא ניתן היה למשוך מדבקה עבור: {failedRefs.join(', ')}
+          <div className="card border-amber-200 bg-amber-50 text-amber-900 text-sm space-y-2">
+            <div className="font-medium">
+              לא התקבלו מדבקות עבור {failed.length} משלוחים:
+            </div>
+            <ul className="list-disc pr-5 space-y-0.5">
+              {failed.map((f) => (
+                <li key={f.ref}>
+                  <span className="font-mono">{f.ref}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="text-xs text-amber-800 border-t border-amber-200 pt-2">
+              💡 בדרך כלל הסיבה: <strong>המדבקה כבר הודפסה בעבר</strong>, או שהמשלוח כבר נשלח/נמסר.
+              אוריין מאפשרת למשוך מדבקה רק כשההזמנה עדיין <strong>"חדשה"</strong> (לפני השליחה).
+            </div>
           </div>
         </div>
       )}
