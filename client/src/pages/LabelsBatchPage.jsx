@@ -1,34 +1,23 @@
-// מסך מדבקות מרובות - מושך PDF מאוריין ומדפיס כמה מדבקות יחד
+// מסך מדבקות מרובות - מושך PDF מאוריין ומאחד את כולן למסמך PDF אחד להדפסה.
 //
 // URL: /shipments/labels?ids=1,2,3
+//
+// למה איחוד? אוריין מחזירה מדבקה נפרדת לכל הזמנה. במקום להציג ולהדפיס כל קובץ
+// בנפרד (מה שהדפדפן מתקשה איתו), אנחנו מאחדים את כל המדבקות למסמך PDF יחיד
+// בעזרת הספרייה pdf-lib — כך שהדפסה אחת מדפיסה את כל המדבקות ברצף.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { getShipment, getShipmentLabel, markShipmentAsSent } from '../api/shipments.js';
+import { PDFDocument } from 'pdf-lib';
 
-// רכיב iframe עם spinner מובנה
-function PdfIframe({ src, title, style }) {
-  const [loaded, setLoaded] = useState(false);
-  return (
-    <div className="relative" style={style}>
-      {!loaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/90 rounded z-10 border">
-          <div className="text-center text-gray-500">
-            <div className="text-2xl mb-1 animate-bounce">📄</div>
-            <div className="text-sm">טוען מדבקה...</div>
-          </div>
-        </div>
-      )}
-      <iframe
-        src={src}
-        title={title}
-        className="w-full border rounded bg-white"
-        style={{ height: '100%', minHeight: style?.minHeight }}
-        onLoad={() => setLoaded(true)}
-      />
-    </div>
-  );
+// ממיר מחרוזת base64 למערך בייטים (Uint8Array) — הפורמט ש-pdf-lib מקבל
+function base64ToBytes(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 export default function LabelsBatchPage() {
@@ -37,41 +26,62 @@ export default function LabelsBatchPage() {
   const idsParam = searchParams.get('ids') || '';
   const ids = idsParam.split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean);
 
-  const [labels, setLabels] = useState([]);      // [{ id, reference_id, labelPdf, error }]
+  const [mergedUrl, setMergedUrl] = useState(null);   // blob URL של ה-PDF המאוחד
+  const [pageCount, setPageCount] = useState(0);      // כמה עמודי מדבקות אוחדו
+  const [failedRefs, setFailedRefs] = useState([]);   // מספרי משלוחים שהמדבקה שלהם נכשלה
   const [loading, setLoading] = useState(true);
   const [autoSentCount, setAutoSentCount] = useState(0);
+  const iframeRef = useRef(null);
 
   useEffect(() => {
     if (ids.length === 0) { setLoading(false); return; }
 
     async function load() {
-      // טעינת כל המשלוחים במקביל
+      // 1. טעינת כל המשלוחים במקביל
       const shipmentResults = await Promise.allSettled(ids.map((id) => getShipment(id)));
-
-      // סינון מוצלחים
-      let loadedShipments = shipmentResults
-        .map((r, i) => r.status === 'fulfilled' ? r.value : null)
+      const loadedShipments = shipmentResults
+        .map((r) => (r.status === 'fulfilled' ? r.value : null))
         .filter(Boolean);
 
-      // חשוב: אוריין מאפשרת למשוך מדבקה רק כשההזמנה במצב "חדש".
-      // לכן מושכים קודם את כל המדבקות, ורק אחר כך מסמנים "נשלח".
+      // 2. משיכת המדבקות מאוריין — לפני סימון "נשלח"
+      //    (אוריין מאפשרת למשוך מדבקה רק כשההזמנה עדיין במצב "חדש")
       const labelResults = await Promise.allSettled(
         loadedShipments.map((s) => getShipmentLabel(s.id))
       );
 
-      const labelsData = loadedShipments.map((s, i) => {
-        const r = labelResults[i];
+      // 3. איסוף כל מחרוזות ה-base64 של המדבקות + רישום כשלונות
+      const allBase64 = [];
+      const failed = [];
+      labelResults.forEach((r, i) => {
         if (r.status === 'fulfilled') {
-          // תמיכה במערך מדבקות (label_pdfs) עם נפילה-לאחור למדבקה בודדת
-          const pdfs = r.value.label_pdfs || (r.value.label_pdf ? [r.value.label_pdf] : []);
-          return { id: s.id, reference_id: s.reference_id, labelPdfs: pdfs };
+          const list = r.value.label_base64_list
+            || (r.value.label_base64 ? [r.value.label_base64] : []);
+          allBase64.push(...list);
+        } else {
+          failed.push(loadedShipments[i].reference_id);
         }
-        return { id: s.id, reference_id: s.reference_id, error: r.reason?.response?.data?.error || 'שגיאה' };
       });
 
-      setLabels(labelsData);
+      // 4. איחוד כל המדבקות למסמך PDF אחד
+      if (allBase64.length > 0) {
+        const mergedPdf = await PDFDocument.create();
+        for (const b64 of allBase64) {
+          try {
+            const src = await PDFDocument.load(base64ToBytes(b64), { ignoreEncryption: true });
+            const pages = await mergedPdf.copyPages(src, src.getPageIndices());
+            pages.forEach((p) => mergedPdf.addPage(p));
+          } catch {
+            // מדבקה בודדת שלא ניתן היה לאחד — מדלגים עליה בלי להפיל את השאר
+          }
+        }
+        const mergedBytes = await mergedPdf.save();
+        const blob = new Blob([mergedBytes], { type: 'application/pdf' });
+        setMergedUrl(URL.createObjectURL(blob));
+        setPageCount(mergedPdf.getPageCount());
+      }
+      setFailedRefs(failed);
 
-      // סימון אוטומטי כ"נשלח" לממתינים — רק אחרי שהמדבקות נמשכו
+      // 5. סימון אוטומטי כ"נשלח" לממתינים — רק admin/warehouse, ורק אחרי משיכת המדבקות
       const canMark = user.role === 'admin' || user.role === 'warehouse';
       let autoSent = 0;
       if (canMark) {
@@ -93,11 +103,23 @@ export default function LabelsBatchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsParam]);
 
-  const successCount = labels.filter((l) => l.labelPdfs && l.labelPdfs.length > 0).length;
-  const failCount = labels.filter((l) => l.error).length;
+  // הדפסה: מדפיסים ישירות את ה-PDF המאוחד שבתוך ה-iframe (מסמך אחד = הדפסה אחת)
+  function handlePrint() {
+    const frame = iframeRef.current;
+    if (frame && frame.contentWindow) {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    } else {
+      window.print();
+    }
+  }
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto px-4 py-8 text-center text-gray-500">טוען מדבקות מאוריין...</div>;
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8 text-center text-gray-500">
+        טוען ומאחד מדבקות מאוריין...
+      </div>
+    );
   }
 
   if (ids.length === 0) {
@@ -112,61 +134,67 @@ export default function LabelsBatchPage() {
   }
 
   return (
-    <div className="bg-gray-100 min-h-screen py-8 print:bg-white print:py-0">
-
+    <div className="bg-gray-100 min-h-screen py-8">
       {/* פס פעולה */}
-      <div className="max-w-4xl mx-auto px-4 mb-4 flex gap-2 items-center print:hidden">
+      <div className="max-w-4xl mx-auto px-4 mb-4 flex flex-wrap gap-2 items-center">
         <Link to="/shipments" className="btn-secondary">← חזרה לרשימה</Link>
         <div className="text-sm text-gray-600 mx-3">
-          {successCount} מדבקות
-          {failCount > 0 && <span className="text-red-600 mr-2">(נכשלו {failCount})</span>}
+          {pageCount} עמודי מדבקות במסמך אחד
+          {failedRefs.length > 0 && (
+            <span className="text-red-600 mr-2">(נכשלו {failedRefs.length})</span>
+          )}
         </div>
-        <button
-          onClick={() => window.print()}
-          disabled={successCount === 0}
-          className="btn-primary mr-auto disabled:opacity-50"
-        >
-          🖨️ הדפסת כל המדבקות
-        </button>
+        {mergedUrl && (
+          <>
+            <a
+              href={mergedUrl}
+              download="מדבקות-משלוחים.pdf"
+              className="btn-secondary"
+            >
+              💾 הורדת קובץ מאוחד
+            </a>
+            <button onClick={handlePrint} className="btn-primary mr-auto">
+              🖨️ הדפסת כל המדבקות
+            </button>
+          </>
+        )}
       </div>
 
       {autoSentCount > 0 && (
-        <div className="max-w-4xl mx-auto px-4 mb-4 print:hidden">
+        <div className="max-w-4xl mx-auto px-4 mb-4">
           <div className="card bg-emerald-50 border-emerald-300 text-emerald-800 text-sm">
             ✓ {autoSentCount} משלוחים סומנו אוטומטית כ"נשלח"
           </div>
         </div>
       )}
 
-      {/* מדבקות — iframe לכל חבילה בכל משלוח */}
-      <div className="max-w-4xl mx-auto px-4 print:p-0 space-y-6 print:space-y-0">
-        {labels.map((label) => {
-          if (label.error) {
-            return (
-              <div key={label.id} className="card border-red-200 bg-red-50 text-red-700 print:hidden">
-                משלוח {label.reference_id}: {label.error}
-              </div>
-            );
-          }
-          return label.labelPdfs.map((pdf, j) => (
-            <div key={`${label.id}-${j}`} className="print:break-after-page">
-              <PdfIframe
-                src={pdf}
-                title={`מדבקה ${label.reference_id}${label.labelPdfs.length > 1 ? ` (${j + 1}/${label.labelPdfs.length})` : ''}`}
-                style={{ height: '70vh', minHeight: '400px' }}
-              />
-            </div>
-          ));
-        })}
-      </div>
+      {/* הודעה על מדבקות שנכשלו (אם יש) */}
+      {failedRefs.length > 0 && (
+        <div className="max-w-4xl mx-auto px-4 mb-4">
+          <div className="card border-red-200 bg-red-50 text-red-700 text-sm">
+            לא ניתן היה למשוך מדבקה עבור: {failedRefs.join(', ')}
+          </div>
+        </div>
+      )}
 
-      <style>{`
-        @media print {
-          @page { margin: 0; }
-          body { background: white !important; }
-          iframe { border: none !important; height: 100vh !important; }
-        }
-      `}</style>
+      {/* מסמך PDF אחד מאוחד עם כל המדבקות */}
+      {mergedUrl ? (
+        <div className="max-w-4xl mx-auto px-4">
+          <iframe
+            ref={iframeRef}
+            src={mergedUrl}
+            title="כל המדבקות במסמך אחד"
+            className="w-full border rounded bg-white"
+            style={{ height: '80vh', minHeight: '500px' }}
+          />
+        </div>
+      ) : (
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="card border-red-200 bg-red-50 text-red-700">
+            לא התקבלו מדבקות מאוריין עבור המשלוחים שנבחרו.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
