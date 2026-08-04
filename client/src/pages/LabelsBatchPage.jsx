@@ -31,6 +31,7 @@ export default function LabelsBatchPage() {
   const [failed, setFailed] = useState([]);           // משלוחים שהמדבקה שלהם נכשלה: [{ ref, msg }]
   const [loading, setLoading] = useState(true);
   const [autoSentCount, setAutoSentCount] = useState(0);
+  const [progress, setProgress] = useState({ done: 0, total: 0 }); // התקדמות משיכת המדבקות
   const iframeRef = useRef(null);
 
   useEffect(() => {
@@ -43,29 +44,43 @@ export default function LabelsBatchPage() {
         .map((r) => (r.status === 'fulfilled' ? r.value : null))
         .filter(Boolean);
 
-      // 2. משיכת המדבקות מאוריין — לפני סימון "נשלח"
-      //    (אוריין מאפשרת למשוך מדבקה רק כשההזמנה עדיין במצב "חדש")
-      const labelResults = await Promise.allSettled(
-        loadedShipments.map((s) => getShipmentLabel(s.id))
-      );
-
-      // 3. איסוף כל מחרוזות ה-base64 של המדבקות + רישום כשלונות (עם הסיבה מהשרת)
+      // 2+3. משיכת המדבקות מאוריין — אחת-אחרי-השנייה (סדרתי!), לא במקביל.
+      //    חשוב: משיכה של הרבה מדבקות במקביל מעמיסה על אוריין וגורמת לחלק
+      //    מהבקשות להיכשל אקראית (וגם יוצרת "מרוץ" על טוקן ההתחברות).
+      //    לכן מושכים בזו אחר זו — איטי מעט יותר, אבל אמין. כל מדבקה מנסים עד פעמיים.
       const allBase64 = [];
       const failedList = [];
-      labelResults.forEach((r, i) => {
-        if (r.status === 'fulfilled') {
-          const list = r.value.label_base64_list
-            || (r.value.label_base64 ? [r.value.label_base64] : []);
+      setProgress({ done: 0, total: loadedShipments.length });
+
+      for (let i = 0; i < loadedShipments.length; i++) {
+        const s = loadedShipments[i];
+        let data = null;
+        let lastErr = 'לא התקבלה מדבקה';
+
+        for (let attempt = 0; attempt < 2 && !data; attempt++) {
+          try {
+            data = await getShipmentLabel(s.id);
+          } catch (err) {
+            lastErr = err?.response?.data?.error || 'שגיאה לא ידועה';
+          }
+        }
+
+        const list = data
+          ? (data.label_base64_list || (data.label_base64 ? [data.label_base64] : []))
+          : [];
+
+        if (list.length > 0) {
           allBase64.push(...list);
         } else {
           failedList.push({
-            ref: loadedShipments[i].reference_id,
-            source: loadedShipments[i].source_branch_name,
-            target: loadedShipments[i].target_branch_name,
-            msg: r.reason?.response?.data?.error || 'שגיאה לא ידועה',
+            ref: s.reference_id,
+            source: s.source_branch_name,
+            target: s.target_branch_name,
+            msg: (data && data.error) || lastErr,
           });
         }
-      });
+        setProgress({ done: i + 1, total: loadedShipments.length });
+      }
 
       // 4. איחוד כל המדבקות למסמך PDF אחד
       if (allBase64.length > 0) {
@@ -121,8 +136,13 @@ export default function LabelsBatchPage() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-8 text-center text-gray-500">
-        טוען ומאחד מדבקות מאוריין...
+      <div className="max-w-2xl mx-auto px-4 py-8 text-center text-gray-500 space-y-2">
+        <div>טוען ומאחד מדבקות מאוריין...</div>
+        {progress.total > 0 && (
+          <div className="text-sm text-gray-400">
+            מדבקה {progress.done} מתוך {progress.total}
+          </div>
+        )}
       </div>
     );
   }
