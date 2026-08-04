@@ -60,6 +60,8 @@ export default function LabelsBatchPage() {
         } else {
           failedList.push({
             ref: loadedShipments[i].reference_id,
+            source: loadedShipments[i].source_branch_name,
+            target: loadedShipments[i].target_branch_name,
             msg: r.reason?.response?.data?.error || 'שגיאה לא ידועה',
           });
         }
@@ -178,10 +180,15 @@ export default function LabelsBatchPage() {
             <div className="font-medium">
               לא התקבלו מדבקות עבור {failed.length} משלוחים:
             </div>
-            <ul className="list-disc pr-5 space-y-0.5">
+            <ul className="list-disc pr-5 space-y-1">
               {failed.map((f) => (
                 <li key={f.ref}>
                   <span className="font-mono">{f.ref}</span>
+                  {(f.source || f.target) && (
+                    <span className="text-amber-800">
+                      {' '}— מאת: <strong>{f.source || '—'}</strong> ← אל: <strong>{f.target || '—'}</strong>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
