@@ -27,6 +27,9 @@ ORIAN_BASE_URL = "https://disapi.orian.com"
 #   זהו משתנה *גלוי* (לא סוד) כדי שאפשר יהיה לראות ולוודא את הערך בקלות.
 #   הוא מספר חשבון, לא סיסמה — ולכן מוגדר כאן ולא דרך `wrangler secret`.
 ORIAN_CONSIGNEE = "1363866"
+# כתובת מערכת בחירת הסניף (branch-pickup-worker) - להזמנות איסוף.
+# המפתח הסודי PICKUP_API_KEY מוגדר דרך `wrangler secret put PICKUP_API_KEY`.
+PICKUP_API_URL = "https://branch-pickup-worker.erel-162.workers.dev"
 # הערה: JWT_SECRET, ORIAN_USERNAME, ORIAN_PASSWORD הם סודות.
 #   - בפרודקשן: הוגדרו דרך `wrangler secret put <NAME>`
 #   - בפיתוח מקומי: יושבים בקובץ .dev.vars (שלא נכנס ל-Git)
