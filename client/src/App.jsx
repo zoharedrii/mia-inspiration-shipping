@@ -15,6 +15,7 @@ import ReportsPage from './pages/ReportsPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import LabelPage from './pages/LabelPage.jsx';
 import LabelsBatchPage from './pages/LabelsBatchPage.jsx';
+import PickupOrdersPage from './pages/PickupOrdersPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Layout from './components/Layout.jsx';
 
@@ -63,6 +64,17 @@ export default function App() {
           <ProtectedRoute>
             <Layout>
               <ShipmentDetailPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/pickup-orders"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PickupOrdersPage />
             </Layout>
           </ProtectedRoute>
         }

@@ -14,9 +14,9 @@ const ROLE_LABELS = {
 
 // פריטי תפריט לפי תפקיד (לתפריט המבורגר במובייל)
 const MENU_ITEMS_BY_ROLE = {
-  admin:      ['home', 'create', 'list', 'reports', 'users'],
+  admin:      ['home', 'create', 'list', 'pickup', 'reports', 'users'],
   warehouse:  ['home', 'create', 'list', 'reports'],
-  branch:     ['home', 'create', 'list'],
+  branch:     ['home', 'pickup', 'create', 'list'],
   accounting: ['home', 'list', 'reports'],
 };
 
@@ -24,6 +24,7 @@ const MENU_ITEMS = {
   home:    { label: 'דף הבית',         icon: '🏠', to: '/' },
   create:  { label: 'יצירת משלוח',     icon: '➕', to: '/shipments/new' },
   list:    { label: 'רשימת משלוחים',   icon: '📋', to: '/shipments' },
+  pickup:  { label: 'הזמנות איסוף',    icon: '🛍️', to: '/pickup-orders' },
   reports: { label: 'דוחות וניתוחים',  icon: '📊', to: '/reports' },
   users:   { label: 'ניהול משתמשים',   icon: '👥', to: '/users' },
 };

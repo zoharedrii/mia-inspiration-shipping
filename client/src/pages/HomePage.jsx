@@ -19,9 +19,9 @@ const ROLE_LABELS = {
 // הנהלת חשבונות = משתמש להפקת מידע בלבד (צפייה במשלוחים ובדוחות, בלי יצירה)
 // ניהול משתמשים - admin בלבד
 const ACTIONS_BY_ROLE = {
-  admin:      ['create', 'list', 'reports', 'users'],
+  admin:      ['create', 'list', 'pickup', 'reports', 'users'],
   warehouse:  ['create', 'list', 'reports'],
-  branch:     ['create', 'list'],
+  branch:     ['pickup', 'create', 'list'],
   accounting: ['list', 'reports'],
 };
 
@@ -77,6 +77,26 @@ export default function HomePage() {
 
       {/* פעולות ראשיות */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {allowedActions.includes('pickup') && (
+          <Link
+            to="/pickup-orders"
+            className="card hover:shadow-md hover:border-blue-200 transition-all
+                       flex items-start gap-4 group"
+          >
+            <div className="h-12 w-12 rounded-xl bg-amber-100 text-amber-600
+                            flex items-center justify-center text-2xl
+                            group-hover:bg-amber-500 group-hover:text-white transition-colors">
+              🛍️
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">הזמנות איסוף</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                אישור הגעה של הזמנות לקוחות לסניף
+              </p>
+            </div>
+          </Link>
+        )}
+
         {allowedActions.includes('create') && (
           <Link
             to="/shipments/new"
