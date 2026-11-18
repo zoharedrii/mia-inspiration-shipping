@@ -91,6 +91,7 @@ npm run dev                # פותח את האפליקציה בכתובת http:
 | [DATABASE.md](docs/DATABASE.md) | Schema של ה-DB + תרשים יחסים (ERD) |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | ארכיטקטורת המערכת + זרימת הנתונים |
 | [PERMISSIONS.md](docs/PERMISSIONS.md) | מודל ההרשאות — מי יכול לעשות מה |
+| [PICKUP-INTEGRATION.md](docs/PICKUP-INTEGRATION.md) | החיבור למערכת "איסוף מסניף" — החלטות, הגדרות, פריסה ומה פתוח |
 | [FLOWS.md](docs/FLOWS.md) | תרחישי שימוש מלאים (Happy Path + Edge Cases) |
 
 ---
