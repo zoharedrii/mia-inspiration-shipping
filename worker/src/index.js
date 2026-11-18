@@ -16,6 +16,7 @@ import branches from './routes/branches.js';
 import shipments from './routes/shipments.js';
 import reports from './routes/reports.js';
 import orian from './routes/orian.js';
+import pickup from './routes/pickup.js';
 
 const app = new Hono();
 
@@ -45,6 +46,7 @@ app.route('/api/branches', branches);
 app.route('/api/shipments', shipments);
 app.route('/api/reports', reports);
 app.route('/api/orian', orian);
+app.route('/api/pickup', pickup);
 
 // === טיפול בשגיאות ===
 app.notFound((c) => {

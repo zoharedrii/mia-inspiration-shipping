@@ -18,10 +18,11 @@ const ROLE_LABELS = {
 // דוחות זמינים למנהל מערכת, למנהל מחסן ולהנהלת חשבונות
 // הנהלת חשבונות = משתמש להפקת מידע בלבד (צפייה במשלוחים ובדוחות, בלי יצירה)
 // ניהול משתמשים - admin בלבד
+// סריקת חבילות לאיסוף - סניף בלבד (הסריקה משויכת לסניף של המשתמשת)
 const ACTIONS_BY_ROLE = {
   admin:      ['create', 'list', 'reports', 'users'],
   warehouse:  ['create', 'list', 'reports'],
-  branch:     ['create', 'list'],
+  branch:     ['pickup', 'create', 'list'],
   accounting: ['list', 'reports'],
 };
 
@@ -77,6 +78,26 @@ export default function HomePage() {
 
       {/* פעולות ראשיות */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {allowedActions.includes('pickup') && (
+          <Link
+            to="/pickup/scan"
+            className="card hover:shadow-md hover:border-rose-200 transition-all
+                       flex items-start gap-4 group sm:col-span-2"
+          >
+            <div className="h-12 w-12 rounded-xl bg-rose-100 text-rose-600
+                            flex items-center justify-center text-2xl
+                            group-hover:bg-rose-600 group-hover:text-white transition-colors">
+              🛍️
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">סריקת חבילות לאיסוף</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                סריקת חבילות של לקוחות שהגיעו לסניף — הלקוחה מקבלת הודעה שהחבילה מחכה לה
+              </p>
+            </div>
+          </Link>
+        )}
+
         {allowedActions.includes('create') && (
           <Link
             to="/shipments/new"
