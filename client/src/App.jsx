@@ -15,6 +15,7 @@ import ReportsPage from './pages/ReportsPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import LabelPage from './pages/LabelPage.jsx';
 import LabelsBatchPage from './pages/LabelsBatchPage.jsx';
+import PickupScanPage from './pages/PickupScanPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Layout from './components/Layout.jsx';
 
@@ -85,6 +86,17 @@ export default function App() {
           <ProtectedRoute>
             <Layout>
               <UsersPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/pickup/scan"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PickupScanPage />
             </Layout>
           </ProtectedRoute>
         }
