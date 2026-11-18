@@ -54,7 +54,9 @@
 | `POST /internal/orders/:orderNumber/receive` | `{ branch_id, received_by }` |
 | `POST /internal/orders/:orderNumber/handover` | `{ branch_id, received_by }` |
 
-> ⚠️ **פתוח:** הכתובות האלה **לא נמצאות** בקוד של מערכת האיסוף בגיטהאב (`btrtrtk/claude-brain`, `projects/branch-pickup`). צריך לברר איפה נבנה החלק הזה (כנראה במחשב אחר, לא הועלה לגיט).
+> ✅ **18.11.2026:** הצד הזה לא נבנה ב-12.11 (מערכת האיסוף לא נפרסה מאז אוגוסט). נבנה ב-18.11 בענף `branch-pickup-shipping-scan` ב-`btrtrtk/claude-brain` — **עוד לא פרוס**. נבדק מקומית מקצה לקצה מול הענף הזה (רשימה, התקבל, נמסר, סניף שגוי, הזמנה שלא יצאה, הזמנה לא קיימת, מפתח שגוי).
+>
+> במערכת האיסוף המפתח נקרא `SHIPPING_INTERNAL_KEY` — **אותו ערך** כמו `PICKUP_API_KEY` כאן.
 
 ## 🗺️ התאמת סניפים
 
@@ -96,7 +98,7 @@
 |-------|-----|-----|
 | משלוחים | `PICKUP_API_URL` | משתנה גלוי (ב-`wrangler.toml`) |
 | משלוחים | `PICKUP_API_KEY` | סוד — `wrangler secret put PICKUP_API_KEY` |
-| איסוף | צריך לבדוק מה השם שמערכת האיסוף מצפה לו | סוד — **אותו ערך** כמו `PICKUP_API_KEY` |
+| איסוף | `SHIPPING_INTERNAL_KEY` | סוד — **אותו ערך** כמו `PICKUP_API_KEY` |
 
 > 🔒 ערכים של סודות לא נכתבים כאן ולא בשום קובץ בגיט.
 
@@ -121,13 +123,13 @@ npx wrangler pages deploy dist --project-name mia-shipping-frontend
 - ✅ הסוד `PICKUP_API_KEY` מוגדר בשרת המשלוחים
 - ✅ שרת המשלוחים נפרס ידנית ב-13.11.2026
 - ⚠️ `PICKUP_API_URL` לא מופיע ברשימת המשתנים בדשבורד — לבדוק שהגרסה החיה כוללת אותו
-- ❓ לא ידוע אם מערכת האיסוף החיה כוללת את כתובות `/internal/...`
+- ❌ מערכת האיסוף החיה **לא** כוללת את כתובות `/internal/...` (פריסת קוד אחרונה: אוגוסט) — לכן מסך "הזמנות איסוף" באוויר לא עובד עד שתיפרס
 
 ## 📝 פתוח / שלבים הבאים
 
-1. **למצוא את הקוד של צד מערכת האיסוף** (כתובות `/internal/orders...`) ולהעלות אותו לגיט.
+1. **לפרוס את מערכת האיסוף** מהענף `branch-pickup-shipping-scan` (מהמק של אראל: `npx wrangler deploy` בתיקייה `projects/branch-pickup/cloudflare-worker`) ולסנכרן את המפתח בשתי המערכות.
 2. **סריקה במצלמה באייפון** — המסך משתמש ב-`BarcodeDetector`, שקיים רק בכרום באנדרואיד. להוסיף את הספרייה `html5-qrcode` (עובדת גם באייפון; כבר בשימוש באפליקציית האיסוף).
-3. **באג "סניף שגוי" במערכת האיסוף** — סריקה בסניף הלא נכון משנה לסטטוס `wrong_branch` גם הזמנה שכבר מחכה ללקוחה או נמסרה. תיקון מוכן בענף `branch-pickup-shipping-scan` ב-claude-brain: מסמנים "סניף שגוי" רק כשההזמנה `in_transit`.
+3. ✅ **באג "סניף שגוי" במערכת האיסוף** — סריקה בסניף הלא נכון שינתה ל-`wrong_branch` גם הזמנה שכבר מחכה ללקוחה. תוקן באותו ענף: מסמנים "סניף שגוי" רק כשההזמנה `in_transit`.
 4. **לתקן את הפריסה האוטומטית** בגיטהאב (או למחוק את ה-workflow), כדי שלא יטעה.
 5. **בדיקה מקצה לקצה על הזמנת טסט בלבד** — לא על הזמנה אמיתית של לקוחה.
 
@@ -135,4 +137,4 @@ npx wrangler pages deploy dist --project-name mia-shipping-frontend
 
 ב-18.11 נבנה בטעות מימוש מקביל, לפני שהענף הזה נמצא:
 - `zoharedrii/mia-inspiration-shipping` ענף `pickup-scan` (PR #1) — מסך סריקה + `POST /api/pickup/scan`. **לא למזג** — כפילות של הענף הזה. שווה לקחת ממנו את מסך המצלמה עם `html5-qrcode`.
-- `btrtrtk/claude-brain` ענף `branch-pickup-shipping-scan` — `POST /internal/branch-scan/:num` + תיקון באג "סניף שגוי". את התיקון כדאי לקחת.
+- `btrtrtk/claude-brain` ענף `branch-pickup-shipping-scan` — **זה הענף שממשיכים איתו**: כתובות `/internal/orders` + תיקון באג "סניף שגוי".
