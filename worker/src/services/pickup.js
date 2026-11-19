@@ -56,6 +56,10 @@ async function callPickupApi(env, path, method, body) {
   }
 
   const data = await response.json().catch(() => ({}));
+  // רושמים בלוג כל תשובת שגיאה ממערכת האיסוף - כדי שאפשר יהיה להבין תקלות (wrangler tail)
+  if (!response.ok) {
+    console.error('pickup api error', method, path.split('?')[0], response.status, JSON.stringify(data).slice(0, 200));
+  }
   return { status: response.status, data: data };
 }
 
@@ -105,11 +109,11 @@ export async function listOrders(env, pickupBranchId) {
     return {
       order_number: order.order_number,
       customer_name: order.customer_name,
+      customer_phone: order.customer_phone || null, // מוצג לסניף כדי שאפשר יהיה להתקשר ללקוחה
       branch_id: order.branch_id,
       branch_name: order.branch_name,
       status: order.status,
       updated_at: order.updated_at,
-      // את הטלפון לא שולחים למסך - הוא נחוץ רק לשרת
       sms_status: notification ? notification.sms_status : null,
     };
   });
