@@ -7,7 +7,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { listPickupOrders, receivePickupOrder, handoverPickupOrder } from '../api/pickup.js';
+import { listPickupOrders, receivePickupOrder, handoverPickupOrder, resendPickupSms } from '../api/pickup.js';
+
+// טקסט ההודעה לסניף לפי מה שקרה עם ה-SMS ללקוחה
+const SMS_RESULT_TEXT = {
+  sent: 'נשלח SMS ללקוחה.',
+  failed: '⚠️ שליחת ה-SMS ללקוחה נכשלה - אפשר לשלוח שוב מהרשימה.',
+  no_phone: '⚠️ אין טלפון ללקוחה בהזמנה, לכן לא נשלח SMS. כדאי להתקשר אליה.',
+};
+
+// תגית קטנה ליד הזמנה שממתינה ללקוחה
+const SMS_BADGE = {
+  sent: { text: 'SMS נשלח', className: 'bg-green-50 text-green-700' },
+  failed: { text: 'SMS נכשל', className: 'bg-orange-50 text-orange-700' },
+  no_phone: { text: 'אין טלפון', className: 'bg-orange-50 text-orange-700' },
+};
 
 // האם הדפדפן יודע לקרוא ברקוד מהמצלמה בלי ספרייה חיצונית (כרום באנדרואיד - כן, אייפון - לא)
 const CAMERA_SCAN_SUPPORTED = typeof window !== 'undefined' && 'BarcodeDetector' in window;
@@ -68,9 +82,16 @@ export default function PickupOrdersPage() {
     try {
       if (action === 'receive') {
         const result = await receivePickupOrder(cleanNumber, pickupBranchId);
+        const smsText = SMS_RESULT_TEXT[result.sms_status] || '';
         setMessage({
-          type: 'success',
-          text: `✅ הזמנה #${cleanNumber} של ${result.customer_name || 'הלקוחה'} התקבלה. נשלחה הודעה ללקוחה.`,
+          type: result.sms_status === 'sent' ? 'success' : 'warning',
+          text: `✅ הזמנה #${cleanNumber} של ${result.customer_name || 'הלקוחה'} התקבלה. ${smsText}`,
+        });
+      } else if (action === 'resend') {
+        const result = await resendPickupSms(cleanNumber);
+        setMessage({
+          type: result.sms_status === 'sent' ? 'success' : 'warning',
+          text: `הזמנה #${cleanNumber}: ${SMS_RESULT_TEXT[result.sms_status] || ''}`,
         });
       } else {
         await handoverPickupOrder(cleanNumber, pickupBranchId);
@@ -149,7 +170,9 @@ export default function PickupOrdersPage() {
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
             message.type === 'success'
               ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
+              : message.type === 'warning'
+                ? 'bg-orange-50 text-orange-800 border border-orange-200'
+                : 'bg-red-50 text-red-800 border border-red-200'
           }`}
         >
           {message.text}
@@ -180,6 +203,8 @@ export default function PickupOrdersPage() {
             buttonLabel="נמסרה ללקוחה"
             buttonClass="btn-secondary"
             onAction={(n) => runAction(n, 'handover')}
+            onResendSms={(n) => runAction(n, 'resend')}
+            showSmsStatus
             note="אם הלקוחה אספה ולא לחצה על הלינק בהודעה, אפשר לסמן כאן."
           />
         </>
@@ -191,7 +216,19 @@ export default function PickupOrdersPage() {
 /**
  * רשימת הזמנות עם כפתור פעולה ליד כל אחת
  */
-function OrdersSection({ title, emptyText, orders, showBranch, busyOrder, buttonLabel, buttonClass, onAction, note }) {
+function OrdersSection({
+  title,
+  emptyText,
+  orders,
+  showBranch,
+  busyOrder,
+  buttonLabel,
+  buttonClass,
+  onAction,
+  onResendSms,
+  showSmsStatus,
+  note,
+}) {
   return (
     <section className="space-y-2">
       <h2 className="font-bold text-gray-900">
@@ -210,14 +247,32 @@ function OrdersSection({ title, emptyText, orders, showBranch, busyOrder, button
                   {order.customer_name || 'ללא שם'}
                   {showBranch && order.branch_name ? ` · ${order.branch_name}` : ''}
                 </div>
+                {showSmsStatus && SMS_BADGE[order.sms_status] && (
+                  <span
+                    className={`inline-block mt-1 text-xs rounded px-2 py-0.5 ${SMS_BADGE[order.sms_status].className}`}
+                  >
+                    {SMS_BADGE[order.sms_status].text}
+                  </span>
+                )}
               </div>
-              <button
-                onClick={() => onAction(order.order_number)}
-                className={`${buttonClass} shrink-0`}
-                disabled={busyOrder !== null}
-              >
-                {busyOrder === order.order_number ? '…' : buttonLabel}
-              </button>
+              <div className="flex flex-col gap-1 shrink-0">
+                <button
+                  onClick={() => onAction(order.order_number)}
+                  className={buttonClass}
+                  disabled={busyOrder !== null}
+                >
+                  {busyOrder === order.order_number ? '…' : buttonLabel}
+                </button>
+                {onResendSms && order.sms_status === 'failed' && (
+                  <button
+                    onClick={() => onResendSms(order.order_number)}
+                    className="text-xs text-blue-700 underline"
+                    disabled={busyOrder !== null}
+                  >
+                    שלח SMS שוב
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>

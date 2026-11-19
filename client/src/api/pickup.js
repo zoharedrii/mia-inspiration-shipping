@@ -22,6 +22,14 @@ export async function receivePickupOrder(orderNumber, pickupBranchId) {
 }
 
 /**
+ * שליחת ה-SMS ללקוחה שוב (אחרי שהשליחה הראשונה נכשלה)
+ */
+export async function resendPickupSms(orderNumber) {
+  const { data } = await apiClient.post(`/pickup-orders/${encodeURIComponent(orderNumber)}/resend-sms`);
+  return data;
+}
+
+/**
  * "נמסרה ללקוחה" - כשהלקוחה אספה ולא לחצה על הלינק
  */
 export async function handoverPickupOrder(orderNumber, pickupBranchId) {
