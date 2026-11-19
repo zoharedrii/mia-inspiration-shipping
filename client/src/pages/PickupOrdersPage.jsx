@@ -3,7 +3,8 @@
 // הפעולה הראשית: לאשר שהזמנה הגיעה לסניף. אפשר בשתי דרכים:
 // 1. סריקת הברקוד שעל המדבקה (סורק ברקוד או מצלמת הטלפון)
 // 2. לחיצה על "התקבל" ליד ההזמנה ברשימה
-// אחרי האישור הלקוחה מקבלת SMS עם לינק, ולוחצת עליו כשהיא אוספת.
+// ההזמנה עוברת ל"ממתינה ללקוחה". כשהלקוחה מגיעה, הסניף לוחץ "לקוחה אספה".
+// (SMS ללקוחה כבוי כרגע - כשיופעל בשרת, ההודעות והתגיות של SMS יופיעו כאן אוטומטית.)
 
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
@@ -85,9 +86,10 @@ export default function PickupOrdersPage() {
     try {
       if (action === 'receive') {
         const result = await receivePickupOrder(cleanNumber, pickupBranchId);
-        const smsText = SMS_RESULT_TEXT[result.sms_status] || '';
+        const smsText = SMS_RESULT_TEXT[result.sms_status] || 'ממתינה ללקוחה.';
+        const smsProblem = result.sms_status === 'failed' || result.sms_status === 'no_phone';
         setMessage({
-          type: result.sms_status === 'sent' ? 'success' : 'warning',
+          type: smsProblem ? 'warning' : 'success',
           text: `✅ הזמנה #${cleanNumber} של ${result.customer_name || 'הלקוחה'} התקבלה. ${smsText}`,
         });
       } else if (action === 'resend') {
@@ -98,7 +100,7 @@ export default function PickupOrdersPage() {
         });
       } else {
         await handoverPickupOrder(cleanNumber, pickupBranchId);
-        setMessage({ type: 'success', text: `🎉 הזמנה #${cleanNumber} סומנה כנמסרה ללקוחה.` });
+        setMessage({ type: 'success', text: `🎉 הזמנה #${cleanNumber}: הלקוחה אספה. ההזמנה נסגרה ונרשמה בשופיפיי.` });
       }
       await loadOrders();
     } catch (error) {
@@ -130,7 +132,7 @@ export default function PickupOrdersPage() {
       <header>
         <h1 className="text-2xl font-bold text-gray-900">הזמנות איסוף</h1>
         <p className="text-gray-600 mt-1 text-sm">
-          סרקי את המדבקה או לחצי "התקבל" כשההזמנה מגיעה לסניף. הלקוחה תקבל הודעה מיד.
+          סרקי את המדבקה או לחצי "התקבל" כשההזמנה מגיעה לסניף. כשהלקוחה אוספת - לחצי "לקוחה אספה".
         </p>
       </header>
 
@@ -214,12 +216,11 @@ export default function PickupOrdersPage() {
             orders={waiting}
             showBranch={isAdmin}
             busyOrder={busyOrder}
-            buttonLabel="נמסרה ללקוחה"
-            buttonClass="btn-secondary"
+            buttonLabel="לקוחה אספה"
+            buttonClass="btn-primary"
             onAction={(n) => runAction(n, 'handover')}
             onResendSms={(n) => runAction(n, 'resend')}
             showSmsStatus
-            note="אם הלקוחה אספה ולא לחצה על הלינק בהודעה, אפשר לסמן כאן."
           />
         </>
       )}

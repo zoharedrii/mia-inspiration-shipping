@@ -280,7 +280,16 @@ export async function receiveOrder(env, orderNumber, pickupBranchId, actorName) 
     )
     .run();
 
-  const smsStatus = await sendArrivalSms(env, savedOrderNumber);
+  // SMS ללקוחה כבוי כרגע (החלטה 19.11) - יופעל בעתיד עם PICKUP_SMS_ENABLED = "1"
+  let smsStatus = 'disabled';
+  if (env.PICKUP_SMS_ENABLED === '1') {
+    smsStatus = await sendArrivalSms(env, savedOrderNumber);
+  } else {
+    await env.DB
+      .prepare("UPDATE pickup_notifications SET sms_status = 'disabled' WHERE order_number = ?")
+      .bind(savedOrderNumber)
+      .run();
+  }
 
   return {
     success: true,

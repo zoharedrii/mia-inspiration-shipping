@@ -93,6 +93,9 @@ router.post('/:orderNumber/handover', requireAuth, requireRole('admin', 'branch'
 router.post('/:orderNumber/resend-sms', requireAuth, requireRole('admin', 'branch'), async (c) => {
   try {
     const user = c.get('user');
+    if (c.env.PICKUP_SMS_ENABLED !== '1') {
+      throw httpError('שליחת SMS ללקוחות כבויה כרגע', 409);
+    }
     const orderNumber = pickup.cleanOrderNumber(c.req.param('orderNumber'));
     const row = await pickup.getNotification(c.env.DB, orderNumber);
     if (!row) {

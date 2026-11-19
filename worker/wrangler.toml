@@ -33,6 +33,8 @@ PICKUP_API_URL = "https://branch-pickup-worker.erel-162.workers.dev"
 # הכתובת הציבורית של ה-Worker הזה - בונים ממנה את הלינק ללקוחה ב-SMS (/p/...).
 # סודות נוספים להזמנות איסוף: FLASHY_API_KEY (שליחת SMS), PICKUP_LINK_SECRET (חתימת הלינק).
 PUBLIC_API_URL = "https://mia-shipping-api.edrizohar2.workers.dev"
+# SMS ללקוחה כשהסניף מאשר "התקבל". "0" = כבוי (החלטה 19.11.2026), "1" = פעיל.
+PICKUP_SMS_ENABLED = "0"
 # הערה: JWT_SECRET, ORIAN_USERNAME, ORIAN_PASSWORD הם סודות.
 #   - בפרודקשן: הוגדרו דרך `wrangler secret put <NAME>`
 #   - בפיתוח מקומי: יושבים בקובץ .dev.vars (שלא נכנס ל-Git)
