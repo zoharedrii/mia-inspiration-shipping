@@ -23,7 +23,9 @@ router.get('/', requireAuth, requireRole('admin', 'branch'), async (c) => {
     if (user.role === 'branch') {
       pickupBranchId = await pickup.getPickupBranchId(c.env.DB, user.branch_id);
     }
-    const orders = await pickup.listOrders(c.env, pickupBranchId);
+    // ?archive=1 - הזמנות שכבר נאספו (לשונית "ארכיון" במסך)
+    const archive = c.req.query('archive') === '1';
+    const orders = await pickup.listOrders(c.env, pickupBranchId, archive);
     return c.json({ orders: orders });
   } catch (error) {
     return c.json({ error: error.message }, error.statusCode || 500);

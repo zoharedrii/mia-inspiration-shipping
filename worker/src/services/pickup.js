@@ -88,10 +88,12 @@ export function cleanOrderNumber(value) {
 
 /**
  * רשימת הזמנות איסוף של סניף: בדרך לסניף + ממתינות ללקוחה.
+ * archive=true - במקום זה: הזמנות שכבר נאספו (300 האחרונות).
  * pickupBranchId ריק = כל הסניפים (למנהלת).
  */
-export async function listOrders(env, pickupBranchId) {
-  let path = '/internal/orders?status=in_transit,waiting_pickup';
+export async function listOrders(env, pickupBranchId, archive) {
+  const statuses = archive ? 'completed' : 'in_transit,waiting_pickup';
+  let path = '/internal/orders?status=' + statuses;
   if (pickupBranchId) {
     path += '&branch_id=' + pickupBranchId;
   }

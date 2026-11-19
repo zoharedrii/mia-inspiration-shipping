@@ -43,6 +43,30 @@ export default function PickupOrdersPage() {
   const [cameraOpen, setCameraOpen] = useState(false);
   const scanInputRef = useRef(null);
 
+  // ארכיון - הזמנות שכבר נאספו. נטען רק כשהסניף בוחר לפתוח אותו.
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveOrders, setArchiveOrders] = useState([]);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveError, setArchiveError] = useState('');
+
+  async function toggleArchive() {
+    if (archiveOpen) {
+      setArchiveOpen(false);
+      return;
+    }
+    setArchiveOpen(true);
+    setArchiveLoading(true);
+    setArchiveError('');
+    try {
+      const result = await listPickupOrders(true);
+      setArchiveOrders(result);
+    } catch (error) {
+      setArchiveError(error.response?.data?.error || 'שגיאה בטעינת הארכיון');
+    } finally {
+      setArchiveLoading(false);
+    }
+  }
+
   async function loadOrders() {
     setLoadError('');
     try {
@@ -222,6 +246,26 @@ export default function PickupOrdersPage() {
             onResendSms={(n) => runAction(n, 'resend')}
             showSmsStatus
           />
+
+          {/* ארכיון - מוצג רק כשהסניף בוחר */}
+          <button type="button" onClick={toggleArchive} className="btn-secondary w-full">
+            {archiveOpen ? 'הסתרת הארכיון' : '📦 ארכיון - הזמנות שנאספו'}
+          </button>
+          {archiveOpen && (
+            <>
+              {archiveLoading && <p className="text-gray-500">טוען ארכיון…</p>}
+              {archiveError && <p className="text-red-700">{archiveError}</p>}
+              {!archiveLoading && !archiveError && (
+                <OrdersSection
+                  title="נאספו"
+                  emptyText="אין הזמנות בארכיון"
+                  orders={archiveOrders}
+                  showBranch={isAdmin}
+                  busyOrder={busyOrder}
+                />
+              )}
+            </>
+          )}
         </>
       )}
     </div>
@@ -279,13 +323,18 @@ function OrdersSection({
                 )}
               </div>
               <div className="flex flex-col gap-1 shrink-0">
-                <button
-                  onClick={() => onAction(order.order_number)}
-                  className={buttonClass}
-                  disabled={busyOrder !== null}
-                >
-                  {busyOrder === order.order_number ? '…' : buttonLabel}
-                </button>
+                {/* בארכיון אין כפתור פעולה - ההזמנה כבר נאספה */}
+                {onAction ? (
+                  <button
+                    onClick={() => onAction(order.order_number)}
+                    className={buttonClass}
+                    disabled={busyOrder !== null}
+                  >
+                    {busyOrder === order.order_number ? '…' : buttonLabel}
+                  </button>
+                ) : (
+                  <span className="text-sm text-green-700">✓ נאספה</span>
+                )}
                 {onResendSms && order.sms_status === 'failed' && (
                   <button
                     onClick={() => onResendSms(order.order_number)}

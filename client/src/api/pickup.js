@@ -5,8 +5,8 @@ import apiClient from './client.js';
 /**
  * הזמנות בדרך לסניף + ממתינות ללקוחה
  */
-export async function listPickupOrders() {
-  const { data } = await apiClient.get('/pickup-orders');
+export async function listPickupOrders(archive) {
+  const { data } = await apiClient.get('/pickup-orders', { params: archive ? { archive: 1 } : {} });
   return data.orders;
 }
 
