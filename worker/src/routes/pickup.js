@@ -58,7 +58,7 @@ async function handleOrderAction(c, action) {
     if (action === 'receive') {
       result = await pickup.receiveOrder(c.env, orderNumber, pickupBranchId, actorName);
     } else {
-      result = await pickup.handoverOrder(c.env, orderNumber, pickupBranchId, actorName);
+      result = await pickup.handoverOrder(c.env, orderNumber, pickupBranchId, actorName, 'branch');
     }
     return c.json(result);
   } catch (error) {
@@ -85,5 +85,30 @@ router.post('/:orderNumber/receive', requireAuth, requireRole('admin', 'branch')
 router.post('/:orderNumber/handover', requireAuth, requireRole('admin', 'branch'), (c) =>
   handleOrderAction(c, 'handover')
 );
+
+/**
+ * POST /api/pickup-orders/:orderNumber/resend-sms - שליחת ה-SMS ללקוחה שוב
+ * (למשל אחרי כשל בשליחה). סניף - רק להזמנות של הסניף שלה.
+ */
+router.post('/:orderNumber/resend-sms', requireAuth, requireRole('admin', 'branch'), async (c) => {
+  try {
+    const user = c.get('user');
+    const orderNumber = pickup.cleanOrderNumber(c.req.param('orderNumber'));
+    const row = await pickup.getNotification(c.env.DB, orderNumber);
+    if (!row) {
+      throw httpError('ההזמנה עוד לא אושרה כהתקבלה בסניף', 409);
+    }
+    if (user.role === 'branch') {
+      const pickupBranchId = await pickup.getPickupBranchId(c.env.DB, user.branch_id);
+      if (row.pickup_branch_id !== pickupBranchId) {
+        throw httpError('ההזמנה הזו לא שייכת לסניף שלך.', 403);
+      }
+    }
+    const smsStatus = await pickup.sendArrivalSms(c.env, orderNumber);
+    return c.json({ success: true, order_number: orderNumber, sms_status: smsStatus });
+  } catch (error) {
+    return c.json({ error: error.message }, error.statusCode || 500);
+  }
+});
 
 export default router;

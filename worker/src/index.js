@@ -17,6 +17,7 @@ import shipments from './routes/shipments.js';
 import reports from './routes/reports.js';
 import orian from './routes/orian.js';
 import pickup from './routes/pickup.js';
+import pickupPublic from './routes/pickupPublic.js';
 
 const app = new Hono();
 
@@ -47,6 +48,8 @@ app.route('/api/shipments', shipments);
 app.route('/api/reports', reports);
 app.route('/api/orian', orian);
 app.route('/api/pickup-orders', pickup);
+// דף ציבורי ללקוחה - אישור איסוף מהלינק ב-SMS (בלי התחברות)
+app.route('/p', pickupPublic);
 
 // === טיפול בשגיאות ===
 app.notFound((c) => {
